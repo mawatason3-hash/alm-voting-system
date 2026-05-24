@@ -54,7 +54,7 @@ export const api = axios.create({
   },
 });
 
-api.interceptors.request.use((config: AxiosRequestConfig) => {
+api.interceptors.request.use((config) => {
   if (config.url && typeof config.url === 'string') {
     config.url = normalizeRequestUrl(config.url);
   }
