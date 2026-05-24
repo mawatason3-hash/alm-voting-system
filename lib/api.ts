@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+const defaultApiUrl = 'https://alm-backend-production.up.railway.app'
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || defaultApiUrl
+const baseURL = String(rawApiUrl).replace(/\/\/+/g, '/').replace(/^https?:\//i, (match) => match.toLowerCase() + '/').replace(/([^:])\/+$/g, '$1')
+
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://alm-backend-production.up.railway.app',
+  baseURL,
   timeout: 15000,
 });
 
