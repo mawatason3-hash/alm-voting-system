@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-  baseURL: 'https://alm-backend.up.railway.app',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://alm-backend-production.up.railway.app',
   timeout: 15000,
 });
 
