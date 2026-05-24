@@ -1,4 +1,5 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios from 'axios';
+import { getToken } from './auth';
 
 const defaultApiUrl = 'https://alm-backend-production.up.railway.app';
 const envApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
@@ -12,6 +13,10 @@ function normalizeBaseUrl(url: string) {
 
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(normalized)) {
     normalized = `https://${normalized}`;
+  }
+
+  if (/^http:\/\//i.test(normalized)) {
+    normalized = normalized.replace(/^http:\/\//i, 'https://');
   }
 
   normalized = normalized.replace(/([^:]\/)\/+/g, '$1');
@@ -61,6 +66,14 @@ api.interceptors.request.use((config) => {
 
   if (!config.headers) {
     config.headers = {} as any;
+  }
+
+  const token = typeof window !== 'undefined' ? getToken() : null;
+  if (token) {
+    config.headers = {
+      ...(config.headers as Record<string, string> | undefined),
+      Authorization: `Bearer ${token}`,
+    } as any;
   }
 
   const isFormData = typeof FormData !== 'undefined' && config.data instanceof FormData;
