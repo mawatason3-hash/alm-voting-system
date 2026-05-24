@@ -1,90 +1,47 @@
-import axios from 'axios';
-import { getToken } from './auth';
+import axios from 'axios'
+import { getToken } from './auth'
 
-const defaultApiUrl = 'https://alm-backend-production.up.railway.app';
-const envApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-const rawApiUrl = envApiUrl && envApiUrl.length > 0 ? envApiUrl : defaultApiUrl;
+const defaultApiUrl = 'https://alm-backend-production.up.railway.app'
+const envApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim()
+const baseURL = (envApiUrl && envApiUrl.length > 0 ? envApiUrl : defaultApiUrl).replace(/\/+$/g, '')
 
-function normalizeBaseUrl(url: string) {
-  let normalized = String(url).trim();
-  if (!normalized) {
-    return '';
-  }
-
-  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(normalized)) {
-    normalized = `https://${normalized}`;
-  }
-
-  if (/^http:\/\//i.test(normalized)) {
-    normalized = normalized.replace(/^http:\/\//i, 'https://');
-  }
-
-  normalized = normalized.replace(/([^:]\/)\/+/g, '$1');
-  normalized = normalized.replace(/\/+$|\\?$/g, '');
-  return normalized;
-}
-
-function normalizeRequestUrl(url: string) {
-  let normalized = String(url).trim();
-  if (!normalized) {
-    return normalized;
-  }
-
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(normalized)) {
-    return normalized.replace(/([^:]\/)\/+/g, '$1');
-  }
-
-  const hostLike = /^([a-z0-9.-]+\.[a-z]{2,})(\/.*)?$/i;
-  if (hostLike.test(normalized) && !normalized.startsWith('/')) {
-    return normalizeBaseUrl(normalized);
-  }
-
-  normalized = normalized.replace(/\\+/g, '/');
-  if (!normalized.startsWith('/')) {
-    normalized = `/${normalized}`;
-  }
-
-  return normalized;
-}
-
-const baseURL = normalizeBaseUrl(rawApiUrl);
-
-export const api = axios.create({
+const api = axios.create({
   baseURL,
   timeout: 15000,
   withCredentials: false,
   headers: {
     Accept: 'application/json',
-    'Content-Type': 'application/json',
   },
-});
+})
 
 api.interceptors.request.use((config) => {
-  if (config.url && typeof config.url === 'string') {
-    config.url = normalizeRequestUrl(config.url);
+  if (!config) {
+    return config
   }
 
-  if (!config.headers) {
-    config.headers = {} as any;
-  }
-
-  const token = typeof window !== 'undefined' ? getToken() : null;
+  const token = typeof window !== 'undefined' ? getToken() : null
   if (token) {
     config.headers = {
-      ...(config.headers as Record<string, string> | undefined),
+      ...(config.headers as Record<string, unknown> | undefined),
       Authorization: `Bearer ${token}`,
-    } as any;
+    } as any
   }
 
-  const isFormData = typeof FormData !== 'undefined' && config.data instanceof FormData;
-  config.headers = {
-    ...(config.headers as Record<string, string> | undefined),
-    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-    Accept: 'application/json',
-  } as any;
+  const isFormData = typeof FormData !== 'undefined' && config.data instanceof FormData
+  if (isFormData) {
+    const headers = { ...(config.headers as Record<string, unknown> | undefined) } as Record<string, unknown>
+    delete headers['Content-Type']
+    delete headers['content-type']
+    config.headers = headers as any
+  } else {
+    config.headers = {
+      ...(config.headers as Record<string, unknown> | undefined),
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    } as any
+  }
 
-  config.withCredentials = false;
-  return config;
-}, (error) => Promise.reject(error));
+  return config
+}, (error) => Promise.reject(error))
 
-export default api;
+export default api
