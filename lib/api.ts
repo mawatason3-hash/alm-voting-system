@@ -1,8 +1,14 @@
 import axios from 'axios'
 import { getToken } from './auth'
 
-const defaultApiUrl = 'https://alm-backend-production.up.railway.app'
+const remoteApiUrl = 'https://alm-backend-production.up.railway.app'
+const localApiUrl = 'http://localhost:8080'
 const envApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim()
+const defaultApiUrl =
+  typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    ? localApiUrl
+    : remoteApiUrl
+
 const baseURL = (envApiUrl && envApiUrl.length > 0 ? envApiUrl : defaultApiUrl).replace(/\/+$/g, '')
 
 const api = axios.create({
@@ -17,6 +23,12 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   if (!config) {
     return config
+  }
+
+  if (config.url && !config.url.endsWith('/') && !config.url.includes('?')) {
+    if (!config.url.includes('/api/auth')) {
+      config.url += '/'
+    }
   }
 
   const token = typeof window !== 'undefined' ? getToken() : null
@@ -40,6 +52,8 @@ api.interceptors.request.use((config) => {
       Accept: 'application/json',
     } as any
   }
+
+  config.withCredentials = false
 
   return config
 }, (error) => Promise.reject(error))
