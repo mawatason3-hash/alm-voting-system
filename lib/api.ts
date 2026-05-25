@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { getToken } from './auth'
 
-const remoteApiUrl = 'https://alm-backend-production.up.railway.app'
+const remoteApiUrl = 'https://backend-voting-system.up.railway.app'
 const localApiUrl = 'http://localhost:8080'
 const envApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim()
 const defaultApiUrl =
