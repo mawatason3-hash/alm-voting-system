@@ -9,9 +9,6 @@
 [build.environment]
   NODE_VERSION = "20"
 
-# Netlify handles client-side routing via the Next.js plugin.
-# For production, set NEXT_PUBLIC_API_URL to your Railway backend URL,
-# without extra slashes or path fragments.
-
-[context.production.environment]
-  NEXT_PUBLIC_API_URL = "https://backend-voting-system.up.railway.app"
+# Set the backend URL in Netlify environment variables:
+#   NEXT_PUBLIC_API_URL = https://<your-railway-backend>.up.railway.app
+# The frontend will use this value without needing to append extra slashes.

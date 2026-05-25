@@ -18,4 +18,4 @@ npm run dev
 
 Ensure `NEXT_PUBLIC_API_URL` in `.env.local` points to your backend (e.g. http://localhost:8000).
 
-Deployment: deploy to Vercel and set `NEXT_PUBLIC_API_URL` to your Railway backend URL.
+Deployment: deploy to Netlify and set `NEXT_PUBLIC_API_URL` in your Netlify environment variables to your Railway backend URL.
