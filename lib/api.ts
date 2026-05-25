@@ -3,13 +3,12 @@ import { getToken } from './auth'
 
 const remoteApiUrl = 'https://backend-voting-system.up.railway.app'
 const localApiUrl = 'http://localhost:8080'
-const envApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim()
-const defaultApiUrl =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? localApiUrl
-    : remoteApiUrl
+const rawEnvApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || ''
+const isLocalBrowser = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+const envApiUrl = rawEnvApiUrl && !(rawEnvApiUrl.startsWith('http://localhost') && !isLocalBrowser) ? rawEnvApiUrl : ''
+const defaultApiUrl = isLocalBrowser ? localApiUrl : remoteApiUrl
 
-const baseURL = (envApiUrl && envApiUrl.length > 0 ? envApiUrl : defaultApiUrl).replace(/\/+$/g, '')
+const baseURL = ((envApiUrl && envApiUrl.length > 0 ? envApiUrl : defaultApiUrl) || remoteApiUrl).replace(/\/\/+$/g, '')
 
 const api = axios.create({
   baseURL,
