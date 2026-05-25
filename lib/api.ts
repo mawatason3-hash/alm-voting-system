@@ -24,10 +24,9 @@ api.interceptors.request.use((config) => {
     return config
   }
 
-  if (config.url && !config.url.endsWith('/') && !config.url.includes('?')) {
-    if (!config.url.includes('/api/auth')) {
-      config.url += '/'
-    }
+  const isAuthEndpoint = typeof config.url === 'string' && config.url.includes('/api/auth')
+  if (config.url && !config.url.endsWith('/') && !config.url.includes('?') && !isAuthEndpoint) {
+    config.url += '/'
   }
 
   const token = typeof window !== 'undefined' ? getToken() : null

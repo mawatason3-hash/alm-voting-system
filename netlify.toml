@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+  functions = ".netlify/functions"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Netlify handles client-side routing via the Next.js plugin.
+# For production, set NEXT_PUBLIC_API_URL to your Railway backend URL,
+# without extra slashes or path fragments.
+
+[context.production.environment]
+  NEXT_PUBLIC_API_URL = "https://backend-voting-system.up.railway.app"
