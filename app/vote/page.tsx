@@ -57,7 +57,11 @@ export default function VoteWizard() {
       return rawImgPath
     }
 
-    const apiBase = ((process.env.NEXT_PUBLIC_API_URL || api.defaults.baseURL || '') as string).replace(/\/\/+$/g, '')
+    let apiBase = ((process.env.NEXT_PUBLIC_API_URL || api.defaults.baseURL || '') as string).replace(/\/\/+$/g, '')
+    if (apiBase && apiBase.startsWith('http://') && !apiBase.includes('localhost')) {
+      apiBase = apiBase.replace(/^http:/, 'https:')
+    }
+
     return apiBase ? `${apiBase}${rawImgPath}` : rawImgPath
   }
 

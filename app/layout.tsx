@@ -10,6 +10,9 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <meta httpEquiv="Content-Security-Policy" content="upgrade-insecure-requests" />
+      </head>
       <body className="min-h-screen bg-slate-950 text-slate-100">
         <div className="min-h-screen bg-slate-950 text-slate-100">
           <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur-md">

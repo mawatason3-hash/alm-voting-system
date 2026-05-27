@@ -54,6 +54,22 @@ api.interceptors.request.use((config) => {
     } as any
   }
 
+  if (config.baseURL && typeof config.baseURL === 'string') {
+    config.baseURL = normalizeApiUrl(config.baseURL)
+  }
+
+  if (typeof config.url === 'string') {
+    try {
+      const resolved = new URL(config.url, config.baseURL || baseURL)
+      if (!resolved.hostname.endsWith('.localhost') && resolved.protocol === 'http:') {
+        resolved.protocol = 'https:'
+        config.url = resolved.toString()
+      }
+    } catch {
+      // preserve the original URL if parsing fails
+    }
+  }
+
   const isFormData = typeof FormData !== 'undefined' && config.data instanceof FormData
   if (isFormData) {
     const headers = { ...(config.headers as Record<string, unknown> | undefined) } as Record<string, unknown>
