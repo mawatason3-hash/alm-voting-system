@@ -7,8 +7,10 @@ import { notify } from '../../../../lib/notifications'
 
 export default function AdminResultsCsv() {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const downloadCsv = async () => {
+    setError(null)
     setLoading(true)
     try {
       const response = await api.get('/api/results/export/csv', {
@@ -25,7 +27,9 @@ export default function AdminResultsCsv() {
       window.URL.revokeObjectURL(url)
       notify.success('CSV export ready for download')
     } catch (err: any) {
-      notify.error(err?.response?.data?.detail || err?.response?.data || 'Unable to export results')
+      const message = err?.response?.data?.detail || err?.response?.data || 'Unable to export results'
+      setError(String(message))
+      notify.error(message)
     } finally {
       setLoading(false)
     }
@@ -46,14 +50,19 @@ export default function AdminResultsCsv() {
               <p className="text-lg font-semibold text-white">Export current results</p>
               <p className="text-sm text-slate-400">This CSV export flattens combined tickets into separate President and Vice President rows, preserving identical vote totals for both.</p>
             </div>
-            <button
-              type="button"
-              onClick={downloadCsv}
-              disabled={loading}
-              className="inline-flex items-center justify-center rounded-3xl bg-gold px-6 py-3 text-sm font-semibold text-navy transition hover:bg-[#b79431] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {loading ? 'Preparing export…' : 'Download results CSV'}
-            </button>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={downloadCsv}
+                disabled={loading}
+                className="inline-flex items-center justify-center rounded-3xl bg-gold px-6 py-3 text-sm font-semibold text-navy transition hover:bg-[#b79431] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loading ? 'Preparing export…' : 'Download results CSV'}
+              </button>
+              {error ? (
+                <p className="text-sm text-red-300">{error}</p>
+              ) : null}
+            </div>
           </div>
         </div>
       </section>

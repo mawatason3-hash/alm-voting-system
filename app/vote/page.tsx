@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import api from '../../lib/api'
 import ProtectedPage from '../components/ProtectedPage'
 import { notify } from '../../lib/notifications'
@@ -13,6 +13,7 @@ export default function VoteWizard() {
   const [teams, setTeams] = useState<any[]>([])
   const [settings, setSettings] = useState<any>(null)
   const [selected, setSelected] = useState<Record<string, string>>({})
+  const [votedPositions, setVotedPositions] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
@@ -23,8 +24,9 @@ export default function VoteWizard() {
       api.get('/api/candidates'),
       api.get('/api/teams'),
       api.get('/api/election/settings'),
+      api.get('/api/votes/my-votes'),
     ])
-      .then(([posRes, candRes, teamRes, settingsRes]) => {
+      .then(([posRes, candRes, teamRes, settingsRes, votesRes]) => {
         const posList = posRes.data || []
         posList.sort((a: any, b: any) =>
           a.is_combined === b.is_combined ? a.title.localeCompare(b.title) : a.is_combined ? -1 : 1
@@ -33,6 +35,12 @@ export default function VoteWizard() {
         setCandidates(candRes.data || [])
         setTeams(teamRes.data || [])
         setSettings(settingsRes.data)
+        setVotedPositions(
+          new Set(
+            (votesRes.data?.voted_titles || votesRes.data?.voted_positions || [])
+              .map((item: string) => normalizePositionKey(item))
+          )
+        )
       })
       .catch(() => {
         notify.error('Unable to load voting data')
@@ -103,6 +111,20 @@ export default function VoteWizard() {
     return resolveImageUrl(rawImgPath)
   }
 
+  const normalizePositionKey = (value: string | undefined | null) => {
+    const raw = String(value || '').trim().toLowerCase()
+    return raw.replace(/\s+/g, ' ')
+  }
+
+  const getPositionKey = (candidate: any) =>
+    normalizePositionKey(
+      candidate?.position_title ||
+      candidate?.position_name ||
+      candidate?.title ||
+      candidate?.position ||
+      ''
+    )
+
   const getRunningMateImage = (candidate: any) => {
     const rawImgPath =
       candidate?.running_mate_picture_url ||
@@ -157,8 +179,34 @@ export default function VoteWizard() {
     return { team, president, secretary, financial }
   })
 
+  const uniquePositionCount = useMemo(() => {
+    const categories = new Set<string>()
+    positions.forEach((position: any) => {
+      const key = normalizePositionKey(position.title || position.display_name)
+      if (key) {
+        categories.add(key)
+      }
+    })
+    return Math.max(3, categories.size)
+  }, [positions])
+
+  const hasAlreadyVoted = (positionKey: string) => {
+    const normalized = normalizePositionKey(positionKey)
+    return votedPositions.has(normalized) || Boolean(selected[normalized])
+  }
+
   const submitVoteForCandidate = async (candidate: any) => {
     if (!candidate) return
+
+    const positionKey = getPositionKey(candidate)
+    if (!positionKey) {
+      notify.error('Candidate position could not be resolved')
+      return
+    }
+    if (hasAlreadyVoted(positionKey)) {
+      notify.error('You have already voted for this position')
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -171,8 +219,12 @@ export default function VoteWizard() {
       const res = await api.post('/api/votes', payload)
       if (res && res.status === 200) {
         notify.success('Vote recorded')
-        // disable further voting for this position locally
-        setSelected((s) => ({ ...s, [String(candidate.position_id)]: String(candidate.id) }))
+        setVotedPositions((prev) => {
+          const next = new Set(prev)
+          next.add(positionKey)
+          return next
+        })
+        setSelected((s) => ({ ...s, [positionKey]: String(candidate.id) }))
       } else {
         notify.error('Unexpected response when recording vote')
       }
@@ -192,6 +244,20 @@ export default function VoteWizard() {
             <p className="text-sm uppercase tracking-[0.3em] text-[#c9a84c]">Voting ballot</p>
             <h1 className="mt-3 text-3xl font-semibold text-[#1a2744]">Single-page ballot</h1>
             <p className="mt-2 text-sm text-slate-500">Scroll to review each team and cast votes directly from the single-page ballot.</p>
+          </div>
+
+          <div className="mb-6 rounded-[1.75rem] border border-slate-200 bg-[#f8f9fa] p-6 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Voting progress</p>
+                <p className="mt-2 text-3xl font-semibold text-[#1a2744]">{votedPositions.size}/{uniquePositionCount}</p>
+              </div>
+              <p className="text-sm text-slate-500">
+                {votedPositions.size
+                  ? `You have voted for ${votedPositions.size} of ${uniquePositionCount} positions.`
+                  : `No positions voted yet. You may vote for ${uniquePositionCount} positions.`}
+              </p>
+            </div>
           </div>
 
           <div className="space-y-8">
@@ -255,14 +321,14 @@ export default function VoteWizard() {
                         <div className="mt-4 md:mt-0 md:flex md:items-center">
                           <button
                             onClick={() => submitVoteForCandidate(president)}
-                            disabled={submitting || !president || !electionOpen || !!selected[String(president?.position_id)]}
+                            disabled={submitting || !president || !electionOpen || hasAlreadyVoted(getPositionKey(president))}
                             className={`ml-auto rounded-3xl px-6 py-3 text-sm font-semibold text-white transition-colors ${
                               electionOpen
                                 ? 'bg-blue-700 hover:bg-blue-800 cursor-pointer'
                                 : 'bg-purple-200 cursor-not-allowed text-purple-400'
                             } disabled:opacity-60`}
                           >
-                            Vote Ticket
+                            {hasAlreadyVoted(getPositionKey(president)) ? 'Already Voted' : 'Vote Ticket'}
                           </button>
                         </div>
                       </div>
@@ -292,14 +358,14 @@ export default function VoteWizard() {
                       <div>
                         <button
                           onClick={() => submitVoteForCandidate(secretary)}
-                          disabled={submitting || !secretary || !electionOpen || !!selected[String(secretary?.position_id)]}
+                          disabled={submitting || !secretary || !electionOpen || hasAlreadyVoted(getPositionKey(secretary))}
                           className={`rounded-3xl px-4 py-2 text-sm font-semibold text-white transition-colors ${
                             electionOpen
                               ? 'bg-blue-700 hover:bg-blue-800 cursor-pointer'
                               : 'bg-purple-200 cursor-not-allowed text-purple-400'
                           } disabled:opacity-60`}
                         >
-                          Vote
+                          {hasAlreadyVoted(getPositionKey(secretary)) ? 'Already Voted' : 'Vote'}
                         </button>
                       </div>
                     </div>
@@ -328,14 +394,14 @@ export default function VoteWizard() {
                       <div>
                         <button
                           onClick={() => submitVoteForCandidate(financial)}
-                          disabled={submitting || !financial || !electionOpen || !!selected[String(financial?.position_id)]}
+                          disabled={submitting || !financial || !electionOpen || hasAlreadyVoted(getPositionKey(financial))}
                           className={`rounded-3xl px-4 py-2 text-sm font-semibold text-white transition-colors ${
                             electionOpen
                               ? 'bg-blue-700 hover:bg-blue-800 cursor-pointer'
                               : 'bg-purple-200 cursor-not-allowed text-purple-400'
                           } disabled:opacity-60`}
                         >
-                          Vote
+                          {hasAlreadyVoted(getPositionKey(financial)) ? 'Already Voted' : 'Vote'}
                         </button>
                       </div>
                     </div>

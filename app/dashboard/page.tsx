@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import {
@@ -45,7 +45,7 @@ interface Candidate {
 }
 
 export default function Dashboard() {
-  const [votedPositions, setVotedPositions] = useState<string[]>([])
+  const [votedPositions, setVotedPositions] = useState<Set<string>>(new Set())
   const [votedTitles, setVotedTitles] = useState<string[]>([])
   const [settings, setSettings] = useState<ElectionSettings | null>(null)
   const [positions, setPositions] = useState<any[]>([])
@@ -65,7 +65,8 @@ export default function Dashboard() {
         ])
 
         if (votesRes.status === 200) {
-          setVotedPositions(votesRes.data.voted_positions || [])
+          const titles = votesRes.data.voted_titles || votesRes.data.voted_positions || []
+          setVotedPositions(new Set((titles as string[]).map((t) => String(t).trim().toLowerCase())))
           setVotedTitles(votesRes.data.voted_titles || [])
         }
         if (settingsRes.status === 200) {
@@ -137,6 +138,11 @@ export default function Dashboard() {
     return { label: 'NOT STARTED YET', color: 'yellow' }
   }
 
+  const uniquePositionCount = useMemo(
+    () => new Set(positions.map((position: any) => String(position.title || position.display_name || '').trim().toLowerCase())).size,
+    [positions]
+  )
+
   const electionStatus = getElectionStatus()
   const countdownLabel = (() => {
     if (!settings) return 'Loading...'
@@ -145,7 +151,7 @@ export default function Dashboard() {
     const numericParts = timeLeft.match(/\d+/g)
     return numericParts?.length ? timeLeft : timeLeft
   })()
-  const totalVoted = new Set(votedPositions).size
+  const totalVoted = votedPositions.size
   const candidatePreview = candidates
   const positionCards = positions.map((position) => ({
     id: position.id,
@@ -158,6 +164,17 @@ export default function Dashboard() {
 
   const hasVotedForPosition = (positionTitle: string) => {
     return votedTitles.includes(positionTitle)
+  }
+
+  const resolveImageUrl = (image?: string | null) => {
+    if (!image) return undefined
+    const rawImgPath = String(image).trim()
+    if (!rawImgPath) return undefined
+    if (/^(https?:\/\/|data:)/i.test(rawImgPath)) {
+      return rawImgPath
+    }
+    const apiBase = ((process.env.NEXT_PUBLIC_API_URL || api.defaults.baseURL || '') as string).replace(/\/\/+$|\/$/, '')
+    return apiBase ? `${apiBase}${rawImgPath}` : rawImgPath
   }
 
   if (loading) {
@@ -190,7 +207,7 @@ export default function Dashboard() {
                 </div>
                 <div className="rounded-3xl border border-slate-200 bg-[#f8f9fa] p-5 text-right">
                   <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Voting progress</p>
-                  <p className="mt-3 text-4xl font-bold text-[#1a2744]">{positions.length ? `${totalVoted}/${positions.length}` : '0/0'}</p>
+                  <p className="mt-3 text-4xl font-bold text-[#1a2744]">{uniquePositionCount ? `${totalVoted}/${uniquePositionCount}` : '0/0'}</p>
                   <p className="text-sm text-slate-500">positions voted</p>
                 </div>
               </div>
@@ -316,8 +333,8 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center gap-4">
                         <div className="h-16 w-16 overflow-hidden rounded-full border-2 border-[#c9a84c] bg-[#1a2744] flex items-center justify-center text-xl font-bold text-[#c9a84c]">
-                          {candidate.profile_picture ? (
-                            <img src={candidate.profile_picture} alt={candidate.full_name} className="h-full w-full object-cover" />
+                          {resolveImageUrl(candidate.profile_picture) ? (
+                            <img src={resolveImageUrl(candidate.profile_picture)} alt={candidate.full_name} className="h-full w-full object-cover" />
                           ) : (
                             <span>{candidate.full_name.charAt(0)}</span>
                           )}
