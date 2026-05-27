@@ -1,6 +1,5 @@
 'use client'
 import React, { useEffect, useState } from 'react'
-import { notify } from '../../lib/notifications'
 import api from '../../lib/api'
 import ProtectedPage from '../components/ProtectedPage'
 import { notify } from '../../lib/notifications'
