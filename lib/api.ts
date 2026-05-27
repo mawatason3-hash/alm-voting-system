@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { getToken } from './auth'
 
 const remoteApiUrl = 'https://backend-voting-system.up.railway.app'
@@ -36,7 +36,7 @@ const api = axios.create({
   },
 })
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (!config) {
     return config
   }
