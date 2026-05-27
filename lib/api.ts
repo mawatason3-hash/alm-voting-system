@@ -5,7 +5,24 @@ const remoteApiUrl = 'https://backend-voting-system.up.railway.app'
 const localApiUrl = 'http://localhost:8080'
 const rawEnvApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim() || ''
 const isLocalBrowser = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-const envApiUrl = rawEnvApiUrl && !(rawEnvApiUrl.startsWith('http://localhost') && !isLocalBrowser) ? rawEnvApiUrl : ''
+
+const normalizeApiUrl = (url: string) => {
+  if (!url) return url
+  try {
+    const parsed = new URL(url)
+    if (parsed.hostname === 'localhost' || parsed.hostname.endsWith('.localhost')) {
+      return url
+    }
+    if (parsed.protocol === 'http:') {
+      parsed.protocol = 'https:'
+    }
+    return parsed.toString().replace(/\/\/+$/g, '')
+  } catch {
+    return url
+  }
+}
+
+const envApiUrl = rawEnvApiUrl && !(rawEnvApiUrl.startsWith('http://localhost') && !isLocalBrowser) ? normalizeApiUrl(rawEnvApiUrl) : ''
 const defaultApiUrl = isLocalBrowser ? localApiUrl : remoteApiUrl
 
 const baseURL = ((envApiUrl && envApiUrl.length > 0 ? envApiUrl : defaultApiUrl) || remoteApiUrl).replace(/\/\/+$/g, '')
