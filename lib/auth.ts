@@ -1,6 +1,10 @@
-export const saveAuth = (token: string, user: object) => {
+export const saveAuth = (token: string, user: any) => {
+  const normalizedUser = {
+    ...user,
+    full_name: user?.full_name || user?.name || null,
+  }
   localStorage.setItem('alm_token', token)
-  localStorage.setItem('alm_user', JSON.stringify(user))
+  localStorage.setItem('alm_user', JSON.stringify(normalizedUser))
 }
 
 export const getToken = (): string | null => {
@@ -11,7 +15,12 @@ export const getToken = (): string | null => {
 export const getUser = () => {
   if (typeof window === 'undefined') return null
   const u = localStorage.getItem('alm_user')
-  return u ? JSON.parse(u) : null
+  if (!u) return null
+  const parsed = JSON.parse(u)
+  return {
+    ...parsed,
+    full_name: parsed?.full_name || parsed?.name || null,
+  }
 }
 
 export const logout = () => {

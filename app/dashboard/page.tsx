@@ -183,7 +183,7 @@ export default function Dashboard() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
                 <div>
                   <p className="text-sm uppercase tracking-[0.3em] text-[#c9a84c]">Member Dashboard</p>
-                  <h1 className="mt-3 text-3xl font-semibold leading-tight">Welcome back, {user?.full_name || 'Member'}</h1>
+                  <h1 className="mt-3 text-3xl font-semibold leading-tight">Welcome back, {user?.full_name || user?.name || 'Member'}</h1>
                   <p className="mt-3 max-w-2xl text-sm text-slate-500">
                     Review election status, preview candidates, and complete your voting in one polished member portal.
                   </p>
@@ -366,7 +366,7 @@ export default function Dashboard() {
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <div className="rounded-3xl bg-[#f8f9fa] p-5">
                     <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Name</p>
-                    <p className="mt-3 text-base font-semibold text-[#1a2744]">{user?.full_name || 'Member'}</p>
+                    <p className="mt-3 text-base font-semibold text-[#1a2744]">{user?.full_name || user?.name || 'Member'}</p>
                   </div>
                   <div className="rounded-3xl bg-[#f8f9fa] p-5">
                     <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Email</p>

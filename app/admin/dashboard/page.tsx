@@ -85,8 +85,8 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {user?.full_name ? (
-              <span className="rounded-full bg-white/10 px-4 py-2 text-sm text-white">{user.full_name}</span>
+            {user?.full_name || user?.name ? (
+              <span className="rounded-full bg-white/10 px-4 py-2 text-sm text-white">{user.full_name || user.name}</span>
             ) : null}
             <button
               type="button"
