@@ -1,5 +1,6 @@
 'use client'
 import React, { useEffect, useState } from 'react'
+import { notify } from '../../lib/notifications'
 import api from '../../lib/api'
 import ProtectedPage from '../components/ProtectedPage'
 import { notify } from '../../lib/notifications'
@@ -162,12 +163,20 @@ export default function VoteWizard() {
 
     setSubmitting(true)
     try {
-      await api.post('/api/votes', {
+      const payload = {
         candidate_id: String(candidate.id),
         position_id: String(candidate.position_id),
         team_id: String(candidate.team_id),
-      })
-      notify.success('Vote recorded')
+      }
+
+      const res = await api.post('/api/votes', payload)
+      if (res && res.status === 200) {
+        notify.success('Vote recorded')
+        // disable further voting for this position locally
+        setSelected((s) => ({ ...s, [String(candidate.position_id)]: String(candidate.id) }))
+      } else {
+        notify.error('Unexpected response when recording vote')
+      }
     } catch (err: any) {
       const message = err?.response?.data?.detail || err?.response?.data || 'Failed to cast vote'
       notify.error(String(message))
@@ -247,7 +256,7 @@ export default function VoteWizard() {
                         <div className="mt-4 md:mt-0 md:flex md:items-center">
                           <button
                             onClick={() => submitVoteForCandidate(president)}
-                            disabled={submitting || !president || !electionOpen}
+                            disabled={submitting || !president || !electionOpen || !!selected[String(president?.position_id)]}
                             className={`ml-auto rounded-3xl px-6 py-3 text-sm font-semibold text-white transition-colors ${
                               electionOpen
                                 ? 'bg-blue-700 hover:bg-blue-800 cursor-pointer'
@@ -284,7 +293,7 @@ export default function VoteWizard() {
                       <div>
                         <button
                           onClick={() => submitVoteForCandidate(secretary)}
-                          disabled={submitting || !secretary || !electionOpen}
+                          disabled={submitting || !secretary || !electionOpen || !!selected[String(secretary?.position_id)]}
                           className={`rounded-3xl px-4 py-2 text-sm font-semibold text-white transition-colors ${
                             electionOpen
                               ? 'bg-blue-700 hover:bg-blue-800 cursor-pointer'
@@ -320,7 +329,7 @@ export default function VoteWizard() {
                       <div>
                         <button
                           onClick={() => submitVoteForCandidate(financial)}
-                          disabled={submitting || !financial || !electionOpen}
+                          disabled={submitting || !financial || !electionOpen || !!selected[String(financial?.position_id)]}
                           className={`rounded-3xl px-4 py-2 text-sm font-semibold text-white transition-colors ${
                             electionOpen
                               ? 'bg-blue-700 hover:bg-blue-800 cursor-pointer'

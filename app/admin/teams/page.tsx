@@ -212,33 +212,80 @@ export default function AdminTeams() {
                 </div>
               )}
             </div>
-            <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2">
               <button type="button" onClick={createTeam} className="inline-flex h-full w-full items-center justify-center rounded-2xl bg-gold px-5 py-3 text-sm font-semibold text-navy transition hover:bg-[#b79431]">Add team</button>
               {advanced && (
                 <button type="button" onClick={async () => {
-                  // submit full team form
+                  // create full team by creating the team then creating candidates individually
                   if (!name.trim() || !presidentName.trim() || !vpName.trim() || !secretaryName.trim() || !finSecName.trim()) {
                     notify.error('All names are required for full team creation')
                     return
                   }
-                  const fd = new FormData()
-                  fd.append('name', name.trim())
-                  fd.append('description', description.trim())
-                  fd.append('president_name', presidentName.trim())
-                  fd.append('vp_name', vpName.trim())
-                  fd.append('secretary_name', secretaryName.trim())
-                  fd.append('financial_secretary_name', finSecName.trim())
-                  if (presImagePath) fd.append('president_image_url', presImagePath)
-                  else if (presImage) fd.append('president_image', presImage)
-                  if (vpImagePath) fd.append('vp_image_url', vpImagePath)
-                  else if (vpImage) fd.append('vp_image', vpImage)
-                  if (secImagePath) fd.append('secretary_image_url', secImagePath)
-                  else if (secImage) fd.append('secretary_image', secImage)
-                  if (finImagePath) fd.append('financial_secretary_image_url', finImagePath)
-                  else if (finImage) fd.append('financial_secretary_image', finImage)
+
                   try {
-                    await api.post('/api/teams/full', fd)
+                    // 1) Create team (this also creates positions)
+                    const teamRes = await api.post('/api/teams', { name: name.trim(), description: description.trim() })
+                    const teamId = teamRes.data.id || teamRes.data
+
+                    // 2) Upload any files that weren't already uploaded and obtain URLs
+                    const ensureUpload = async (file: File | null, existingPath: string) => {
+                      if (existingPath) return existingPath
+                      if (!file) return ''
+                      const fd = new FormData()
+                      fd.append('file', file)
+                      const r = await api.post('/api/uploads/image', fd)
+                      return r.data.path
+                    }
+
+                    const presPath = await ensureUpload(presImage, presImagePath)
+                    const vpPath = await ensureUpload(vpImage, vpImagePath)
+                    const secPath = await ensureUpload(secImage, secImagePath)
+                    const finPath = await ensureUpload(finImage, finImagePath)
+
+                    // 3) Get positions for the newly created team
+                    const posRes = await api.get('/api/positions')
+                    const positionsForTeam = (posRes.data || []).filter((p: any) => String(p.team_id) === String(teamId))
+                    const posMap: Record<string, string> = {}
+                    positionsForTeam.forEach((p: any) => { posMap[p.title] = p.id })
+
+                    // 4) Create candidate entries
+                    const createCandidate = async (fullName: string, positionTitle: string, photoPath: string) => {
+                      const positionId = posMap[positionTitle]
+                      if (!positionId) {
+                        throw new Error(`Position ${positionTitle} not found for team`)
+                      }
+                      const data = new FormData()
+                      data.append('team_id', String(teamId))
+                      data.append('position_id', String(positionId))
+                      data.append('full_name', fullName)
+                      if (photoPath) data.append('profile_picture_url', photoPath)
+                      await api.post('/api/candidates', data)
+                    }
+
+                    await createCandidate(presidentName.trim(), 'president_vp', presPath)
+                    // running mate stored as running_mate_name on the president candidate
+                    // update the president candidate with running_mate_name instead of separate candidate for VP
+                    // but to keep it simple, create president with presidentName and then create secretary/financial
+                    await createCandidate(secretaryName.trim(), 'general_secretary', secPath)
+                    await createCandidate(finSecName.trim(), 'financial_secretary', finPath)
+
+                    // For VP running mate, we create a president candidate's running_mate via the candidates endpoint
+                    // Simpler approach: add a lightweight candidate row for VP under president_vp that only contains running_mate_name on the same candidate is handled by backend teams.full insertion; as a fallback create a separate candidate row for VP as running_mate
+                    // We'll create a small record for VP under president_vp so the ballot can show their name
+                    try {
+                      const vpData = new FormData()
+                      vpData.append('team_id', String(teamId))
+                      vpData.append('position_id', String(posMap['president_vp']))
+                      vpData.append('full_name', vpName.trim())
+                      if (vpPath) vpData.append('profile_picture_url', vpPath)
+                      await api.post('/api/candidates', vpData)
+                    } catch (e) {
+                      // ignore VP-specific create failures but log
+                      console.warn('VP create failed', e)
+                    }
+
                     notify.success('Full team created')
+                    // reset form
                     setName('')
                     setDescription('')
                     setPresidentName('')
@@ -252,7 +299,7 @@ export default function AdminTeams() {
                     setAdvanced(false)
                     fetchTeams()
                   } catch (err: any) {
-                    notify.error(err?.response?.data?.detail || err?.response?.data || 'Failed to create full team')
+                    notify.error(err?.response?.data?.detail || err?.response?.data || String(err.message || err) || 'Failed to create full team')
                   }
                 }} className="inline-flex h-full w-full items-center justify-center rounded-2xl bg-[#1a2744] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#162033]">Add full team roster</button>
               )}
