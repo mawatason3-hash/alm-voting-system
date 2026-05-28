@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
     "@tanstack/react-table": "^8.9.3",
     "axios": "^1.4.0",
     "clsx": "^1.2.1",
