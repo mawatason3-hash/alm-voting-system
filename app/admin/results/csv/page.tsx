@@ -13,19 +13,31 @@ export default function AdminResultsCsv() {
     setError(null)
     setLoading(true)
     try {
-      const response = await api.get('/api/results/export/csv', {
-        responseType: 'blob',
+      // Fetch JSON results and build CSV client-side to avoid server-side export errors
+      const res = await api.get('/api/results/')
+      if (!res || res.status !== 200) throw new Error('Failed to fetch results')
+
+      const data = res.data || {}
+      const candidates = Array.isArray(data.candidates) ? data.candidates : []
+
+      const rows: Array<string[]> = []
+      rows.push(['Team', 'Position', 'Candidate Name', 'Running Mate', 'Votes'])
+
+      candidates.forEach((c: any) => {
+        const team = c.team_name || ''
+        const position = c.position_name || c.position_title || ''
+        const name = c.full_name || c.name || c.candidate_name || ''
+        const running = c.running_mate_name || ''
+        const votes = String(c.vote_count || 0)
+
+        rows.push([team, position, name, running, votes])
       })
 
-      if (!response || response.status !== 200) {
-        throw new Error('Unable to export results')
-      }
+      const csvString = rows
+        .map((row) => row.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(','))
+        .join('\n')
 
-      const responseData = response.data
-      const blob = responseData instanceof Blob
-        ? responseData
-        : new Blob([responseData], { type: 'text/csv;charset=utf-8;' })
-
+      const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -36,7 +48,20 @@ export default function AdminResultsCsv() {
       window.URL.revokeObjectURL(url)
       notify.success('CSV export ready for download')
     } catch (err: any) {
-      const message = err?.response?.data?.detail || err?.response?.data || err?.message || 'Unable to export results'
+      // If the error response body is a Blob (HTML from server), try to extract text for clearer message
+      let message = err?.message || 'Unable to export results'
+      try {
+        const respData = err?.response?.data
+        if (respData && typeof respData === 'object' && typeof respData.text === 'function') {
+          const txt = await respData.text()
+          if (txt) message = txt
+        } else if (typeof respData === 'string') {
+          message = respData
+        }
+      } catch (e) {
+        // ignore
+      }
+
       setError(String(message))
       notify.error(String(message))
     } finally {
