@@ -1,20 +1,61 @@
 'use client'
 import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import api from '../../lib/api'
 import { notify } from '../../lib/notifications'
 
 export default function Register() {
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', member_id: '', password: '', confirm: '' })
+  const router = useRouter()
+  const [form, setForm] = useState({ full_name: '', email: '', phone: '', password: '', confirm: '' })
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [registrationSubmitted, setRegistrationSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  React.useEffect(() => {
+    return () => {
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview)
+      }
+    }
+  }, [photoPreview])
+
   const onChange = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
+
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      setError('Photo must be under 5MB')
+      setPhoto(null)
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview)
+        setPhotoPreview(null)
+      }
+      return
+    }
+
+    setError('')
+    setPhoto(file)
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview)
+    }
+    setPhotoPreview(URL.createObjectURL(file))
+  }
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
     setSuccess('')
+
+    if (!photo) {
+      setError('Please upload your photo to complete registration')
+      return
+    }
 
     if (form.password !== form.confirm) {
       setError('Passwords do not match.')
@@ -23,18 +64,22 @@ export default function Register() {
 
     setLoading(true)
     try {
-      const response = await api.post('/api/auth/register', {
-        full_name: form.full_name,
-        email: form.email,
-        phone: form.phone,
-        member_id: form.member_id,
-        password: form.password,
-      })
+      const formData = new FormData()
+      formData.append('full_name', form.full_name)
+      formData.append('email', form.email)
+      formData.append('phone', form.phone)
+      formData.append('password', form.password)
+      formData.append('photo', photo)
 
-      const message = response?.data?.message || 'Registration submitted. Await admin approval.'
+      const response = await api.post('/api/auth/register', formData)
+      const message = response?.data?.message || 'Registration submitted! Admin will review and approve your account.'
+
       setSuccess(message)
+      setRegistrationSubmitted(true)
       notify.success(message)
-      setForm({ full_name: '', email: '', phone: '', member_id: '', password: '', confirm: '' })
+      setForm({ full_name: '', email: '', phone: '', password: '', confirm: '' })
+      setPhoto(null)
+      setPhotoPreview(null)
     } catch (err: any) {
       let message = 'Registration failed.'
       const responseData = err?.response?.data
@@ -69,6 +114,34 @@ export default function Register() {
         <form onSubmit={submit} className="space-y-5">
           {error && <div className="rounded-2xl bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>}
           {success && <div className="rounded-2xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">{success}</div>}
+
+          <div className="space-y-4 rounded-3xl border border-white/10 bg-slate-950/80 p-4">
+            <div className="flex flex-col items-center gap-3 text-center">
+              {photoPreview ? (
+                <img
+                  src={photoPreview}
+                  alt="Profile preview"
+                  className="h-24 w-24 rounded-full border border-slate-700 object-cover"
+                />
+              ) : (
+                <div className="flex h-24 w-24 items-center justify-center rounded-full border border-dashed border-slate-700 bg-slate-900 text-slate-500">
+                  <span className="text-sm">Photo preview</span>
+                </div>
+              )}
+              <div>
+                <label htmlFor="photo" className="block text-sm font-medium text-slate-200">Profile Photo</label>
+                <p className="mt-1 text-xs text-slate-400">Upload a clear photo of your face so the admin can verify your identity.</p>
+              </div>
+            </div>
+            <input
+              id="photo"
+              name="photo"
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoChange}
+              className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20"
+            />
+          </div>
 
           <label htmlFor="full_name" className="block text-sm font-medium text-slate-200">
             Full Name
@@ -110,19 +183,6 @@ export default function Register() {
             placeholder="Phone number"
           />
 
-          <label htmlFor="member_id" className="block text-sm font-medium text-slate-200">
-            Member ID
-          </label>
-          <input
-            id="member_id"
-            name="member_id"
-            value={form.member_id}
-            onChange={e => onChange('member_id', e.target.value)}
-            required
-            className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20"
-            placeholder="Your member ID"
-          />
-
           <label htmlFor="password" className="block text-sm font-medium text-slate-200">
             Password
           </label>
@@ -159,6 +219,34 @@ export default function Register() {
             {loading ? 'Registering...' : 'Register'}
           </button>
         </form>
+
+        {registrationSubmitted && (
+          <div className="mt-6 rounded-3xl border border-slate-700 bg-slate-900/80 p-6">
+            <h2 className="text-xl font-semibold text-white">Registration submitted</h2>
+            <p className="mt-3 text-sm text-slate-300">
+              Your registration is complete. An administrator will review and approve your account before you can vote.
+            </p>
+            <p className="mt-4 text-sm text-slate-400">
+              After approval, you can enroll your face descriptor from your member dashboard so you can verify your identity during election day.
+            </p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard')}
+                className="rounded-2xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-400"
+              >
+                Go to dashboard
+              </button>
+              <button
+                type="button"
+                onClick={() => setRegistrationSubmitted(false)}
+                className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/20"
+              >
+                Continue browsing
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

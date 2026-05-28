@@ -19,6 +19,8 @@ export default function AdminSettings() {
     voting_start: '',
     voting_end: '',
     allow_registration: false,
+    admin_contact_name: '',
+    admin_contact_email: '',
   })
   const [loading, setLoading] = useState(true)
 
@@ -29,6 +31,8 @@ export default function AdminSettings() {
           ...r.data,
           voting_start: formatLocalDate(r.data.voting_start),
           voting_end: formatLocalDate(r.data.voting_end),
+          admin_contact_name: r.data.admin_contact_name || '',
+          admin_contact_email: r.data.admin_contact_email || '',
         })
       })
       .catch(() => {
@@ -50,6 +54,8 @@ export default function AdminSettings() {
         ...settings,
         voting_start: settings.voting_start || null,
         voting_end: settings.voting_end || null,
+        admin_contact_name: settings.admin_contact_name || null,
+        admin_contact_email: settings.admin_contact_email || null,
       })
       notify.success('Settings saved')
     } catch (err: any) {
@@ -123,6 +129,28 @@ export default function AdminSettings() {
                       <span>Allow registration</span>
                     </label>
                   </div>
+
+                  <div className="grid gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-200">Admin contact name</label>
+                      <input
+                        value={settings.admin_contact_name}
+                        onChange={(e) => setSettings({ ...settings, admin_contact_name: e.target.value })}
+                        className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
+                        placeholder="Name to display for member support"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-200">Admin contact email</label>
+                      <input
+                        type="email"
+                        value={settings.admin_contact_email}
+                        onChange={(e) => setSettings({ ...settings, admin_contact_email: e.target.value })}
+                        className="mt-3 w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-gold focus:ring-2 focus:ring-gold/20"
+                        placeholder="admin@example.com"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="rounded-[1.5rem] border border-white/10 bg-slate-900/95 p-6 text-slate-300">
@@ -143,6 +171,10 @@ export default function AdminSettings() {
                     <div className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3">
                       <span>Vote window</span>
                       <span className="font-semibold text-white">{settings.voting_start ? settings.voting_start : 'Not scheduled'} → {settings.voting_end ? settings.voting_end : 'Not scheduled'}</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3">
+                      <span>Admin contact</span>
+                      <span className="font-semibold text-white">{settings.admin_contact_name || 'Not set'} / {settings.admin_contact_email || 'Not set'}</span>
                     </div>
                   </div>
                 </div>

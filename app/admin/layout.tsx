@@ -1,23 +1,42 @@
   'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
+import api from '../../lib/api'
 
 const navItems = [
   { label: '📊 Control Center', href: '/admin/dashboard' },
   { label: '👥 Ballot Configuration', href: '/admin/teams' },
   { label: '📋 Live Standings', href: '/admin/results' },
   { label: '📥 Official Data Export', href: '/admin/results/csv' },
+  { label: '🛎️ Support Requests', href: '/admin/requests' },
+  { label: '📬 Access Requests', href: '/admin/access-requests' },
 ]
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [pendingAccessRequests, setPendingAccessRequests] = useState(0)
   const showShell = pathname !== '/admin/login'
   const sectionLabel = pathname?.split('/').filter(Boolean).slice(-1)[0] || 'dashboard'
   const activeSection = sectionLabel === 'admin' ? 'Dashboard' : sectionLabel.charAt(0).toUpperCase() + sectionLabel.slice(1)
+
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      try {
+        const response = await api.get('/api/access-requests/pending-count')
+        if (response.status === 200) {
+          setPendingAccessRequests(response.data?.pending_count || 0)
+        }
+      } catch (err) {
+        console.warn('Unable to load pending access request count', err)
+      }
+    }
+
+    fetchPendingCount()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-navy via-slate-950 to-slate-900 text-slate-100">
@@ -86,6 +105,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       }`}
                     >
                       {item.label}
+                      {item.href === '/admin/access-requests' && pendingAccessRequests > 0 ? (
+                        <span className="ml-2 inline-flex rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-semibold text-white">
+                          {pendingAccessRequests}
+                        </span>
+                      ) : null}
                     </Link>
                   )
                 })}
@@ -121,6 +145,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       }`}
                     >
                       {item.label}
+                      {item.href === '/admin/access-requests' && pendingAccessRequests > 0 ? (
+                        <span className="ml-2 inline-flex rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-semibold text-white">
+                          {pendingAccessRequests}
+                        </span>
+                      ) : null}
                     </Link>
                   )
                 })}

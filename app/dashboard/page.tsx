@@ -52,6 +52,7 @@ export default function Dashboard() {
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [loading, setLoading] = useState(true)
   const [timeLeft, setTimeLeft] = useState('')
+  const [hasFaceSetup, setHasFaceSetup] = useState<boolean | null>(null)
   const user = getUser()
 
   const normalizePositionKey = (value: string | undefined | null) => {
@@ -87,6 +88,25 @@ export default function Dashboard() {
         }
         if (candidatesRes.status === 200) {
           setCandidates(Array.isArray(candidatesRes.data) ? candidatesRes.data : [])
+        }
+
+        try {
+          const faceRefRes = await api.get('/api/votes/face-descriptor')
+          if (faceRefRes.status === 200) {
+            const refData = faceRefRes.data
+            if (refData?.descriptor && Array.isArray(refData.descriptor) && refData.descriptor.length > 0) {
+              setHasFaceSetup(true)
+            } else {
+              setHasFaceSetup(false)
+            }
+          }
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            setHasFaceSetup(false)
+          } else {
+            console.warn('Unable to resolve face verification status', err)
+            setHasFaceSetup(false)
+          }
         }
       } catch (error) {
         console.error('Dashboard fetch error:', error)
@@ -262,7 +282,7 @@ export default function Dashboard() {
               </div>
               <div className="mt-6 space-y-4">
                 <Link
-                  href={settings?.is_active ? '/vote' : '#'}
+                  href={settings?.is_active ? '/verify-face' : '#'}
                   className={`flex items-center justify-between rounded-3xl border px-5 py-4 text-sm font-semibold transition ${
                     settings?.is_active
                       ? 'border-[#c9a84c] bg-[#1a2744] text-white hover:bg-[#18223d]'
@@ -271,10 +291,35 @@ export default function Dashboard() {
                 >
                   <span className="flex items-center gap-3">
                     <Vote size={18} className={settings?.is_active ? 'text-white' : 'text-slate-400'} />
-                    Click to Vote
+                    Click to verify and vote
                   </span>
                   <ChevronRight size={18} className={settings?.is_active ? 'text-white' : 'text-slate-400'} />
                 </Link>
+                <div className="rounded-3xl border border-slate-200 bg-[#f8f9fa] p-5">
+                  {hasFaceSetup === null ? (
+                    <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-900">Checking face verification status…</div>
+                  ) : hasFaceSetup ? (
+                    <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">
+                      <p className="font-semibold">Face verification is set up.</p>
+                      <p className="mt-2 text-sm text-emerald-900/80">You're ready to verify your identity and access the voting ballot.</p>
+                      <div className="mt-3">
+                        <Link href="/dashboard/face-setup" className="inline-flex rounded-full bg-[#1a2744] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#18223d]">
+                          Update face recognition
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
+                      <p className="font-semibold">Face verification setup required.</p>
+                      <p className="mt-2 text-sm text-amber-900/80">Set up face recognition before you can access the ballot.</p>
+                      <div className="mt-3">
+                        <Link href="/dashboard/face-setup" className="inline-flex rounded-full bg-[#1a2744] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#18223d]">
+                          Set up face recognition
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="rounded-3xl border border-slate-200 bg-[#f8f9fa] p-5">
                   <div className="flex items-center gap-3">
                     <Bell size={20} className="text-[#c9a84c]" />
