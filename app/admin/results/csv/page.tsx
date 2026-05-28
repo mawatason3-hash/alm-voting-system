@@ -16,7 +16,16 @@ export default function AdminResultsCsv() {
       const response = await api.get('/api/results/export/csv', {
         responseType: 'blob',
       })
-      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' })
+
+      if (!response || response.status !== 200) {
+        throw new Error('Unable to export results')
+      }
+
+      const responseData = response.data
+      const blob = responseData instanceof Blob
+        ? responseData
+        : new Blob([responseData], { type: 'text/csv;charset=utf-8;' })
+
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -27,9 +36,9 @@ export default function AdminResultsCsv() {
       window.URL.revokeObjectURL(url)
       notify.success('CSV export ready for download')
     } catch (err: any) {
-      const message = err?.response?.data?.detail || err?.response?.data || 'Unable to export results'
+      const message = err?.response?.data?.detail || err?.response?.data || err?.message || 'Unable to export results'
       setError(String(message))
-      notify.error(message)
+      notify.error(String(message))
     } finally {
       setLoading(false)
     }

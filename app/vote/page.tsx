@@ -14,6 +14,7 @@ export default function VoteWizard() {
   const [settings, setSettings] = useState<any>(null)
   const [selected, setSelected] = useState<Record<string, string>>({})
   const [votedPositions, setVotedPositions] = useState<Set<string>>(new Set())
+  const [positionKeyById, setPositionKeyById] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
@@ -40,6 +41,15 @@ export default function VoteWizard() {
             (votesRes.data?.voted_titles || votesRes.data?.voted_positions || [])
               .map((item: string) => normalizePositionKey(item))
           )
+        )
+        setPositionKeyById(
+          posList.reduce((map: Record<string, string>, position: any) => {
+            const key = normalizePositionKey(position.title || position.display_name)
+            if (position.id && key) {
+              map[String(position.id)] = key
+            }
+            return map
+          }, {})
         )
       })
       .catch(() => {
@@ -113,17 +123,27 @@ export default function VoteWizard() {
 
   const normalizePositionKey = (value: string | undefined | null) => {
     const raw = String(value || '').trim().toLowerCase()
-    return raw.replace(/\s+/g, ' ')
+    return raw
+      .replace(/[_\-\s]+/g, ' ')
+      .replace(/[^a-z0-9 ]+/g, '')
+      .trim()
   }
 
-  const getPositionKey = (candidate: any) =>
-    normalizePositionKey(
+  const getCandidatePositionName = (candidate: any) =>
+    String(
       candidate?.position_title ||
       candidate?.position_name ||
       candidate?.title ||
       candidate?.position ||
       ''
-    )
+    ).trim()
+
+  const getPositionKey = (candidate: any) => {
+    if (!candidate) return ''
+    const byId = candidate?.position_id ? normalizePositionKey(positionKeyById[String(candidate.position_id)]) : ''
+    if (byId) return byId
+    return normalizePositionKey(getCandidatePositionName(candidate))
+  }
 
   const getRunningMateImage = (candidate: any) => {
     const rawImgPath =
@@ -161,26 +181,28 @@ export default function VoteWizard() {
   }
 
   const matchesPosition = (candidate: any, terms: string[]) => {
-    const label = String(
-      candidate?.position_title ||
-      candidate?.position_name ||
-      candidate?.title ||
-      candidate?.name ||
-      ''
-    ).toLowerCase()
-    return terms.some((term) => label.includes(term))
+    const label = normalizePositionKey(getCandidatePositionName(candidate))
+    return terms.some((term) => label === normalizePositionKey(term))
   }
 
   const teamsWithCandidates = teams.map((team: any) => {
     const teamCandidates = getTeamCandidates(team)
-    const president = teamCandidates.find((c: any) => matchesPosition(c, ['president_vp', 'president'])) || teamCandidates.find((c: any) => c.is_combined)
-    const secretary = teamCandidates.find((c: any) => matchesPosition(c, ['general_secretary', 'secretary']))
-    const financial = teamCandidates.find((c: any) => matchesPosition(c, ['financial_secretary', 'financial']))
+    const president = teamCandidates.find((c: any) => matchesPosition(c, ['President & Vice President', 'president vice president', 'president_vp', 'president'])) || teamCandidates.find((c: any) => c.is_combined)
+    const secretary = teamCandidates.find((c: any) => matchesPosition(c, ['Secretary', 'general secretary']))
+    const financial = teamCandidates.find((c: any) => matchesPosition(c, ['Financial Secretary']))
     return { team, president, secretary, financial }
   })
 
   const uniquePositionCount = useMemo(() => {
     const categories = new Set<string>()
+    Object.values(positionKeyById).forEach((key) => {
+      if (key) {
+        categories.add(key)
+      }
+    })
+    if (categories.size > 0) {
+      return categories.size
+    }
     positions.forEach((position: any) => {
       const key = normalizePositionKey(position.title || position.display_name)
       if (key) {
@@ -188,7 +210,7 @@ export default function VoteWizard() {
       }
     })
     return Math.max(3, categories.size)
-  }, [positions])
+  }, [positions, positionKeyById])
 
   const hasAlreadyVoted = (positionKey: string) => {
     const normalized = normalizePositionKey(positionKey)

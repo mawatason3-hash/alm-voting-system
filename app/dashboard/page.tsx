@@ -54,6 +54,14 @@ export default function Dashboard() {
   const [timeLeft, setTimeLeft] = useState('')
   const user = getUser()
 
+  const normalizePositionKey = (value: string | undefined | null) => {
+    const raw = String(value || '').trim().toLowerCase()
+    return raw
+      .replace(/[_\-\s]+/g, ' ')
+      .replace(/[^a-z0-9 ]+/g, '')
+      .trim()
+  }
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -66,7 +74,9 @@ export default function Dashboard() {
 
         if (votesRes.status === 200) {
           const titles = votesRes.data.voted_titles || votesRes.data.voted_positions || []
-          setVotedPositions(new Set((titles as string[]).map((t) => String(t).trim().toLowerCase())))
+          setVotedPositions(
+            new Set((titles as string[]).map((t) => normalizePositionKey(t)))
+          )
           setVotedTitles(votesRes.data.voted_titles || [])
         }
         if (settingsRes.status === 200) {
@@ -138,11 +148,6 @@ export default function Dashboard() {
     return { label: 'NOT STARTED YET', color: 'yellow' }
   }
 
-  const uniquePositionCount = useMemo(
-    () => new Set(positions.map((position: any) => String(position.title || position.display_name || '').trim().toLowerCase())).size,
-    [positions]
-  )
-
   const electionStatus = getElectionStatus()
   const countdownLabel = (() => {
     if (!settings) return 'Loading...'
@@ -153,6 +158,17 @@ export default function Dashboard() {
   })()
   const totalVoted = votedPositions.size
   const candidatePreview = candidates
+  const uniquePositionCount = useMemo(() => {
+    const categories = new Set<string>()
+    positions.forEach((position: any) => {
+      const key = normalizePositionKey(position.title || position.display_name)
+      if (key) {
+        categories.add(key)
+      }
+    })
+    return Math.max(3, categories.size)
+  }, [positions])
+
   const positionCards = positions.map((position) => ({
     id: position.id,
     title: position.title,
