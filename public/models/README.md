@@ -1,4 +1,4 @@
-Download these files from:
+ Download these files from:
 https://github.com/justadudewhohacks/face-api.js/tree/master/weights
 
 Files to download:
