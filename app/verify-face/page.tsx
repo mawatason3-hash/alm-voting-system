@@ -19,9 +19,94 @@ const THRESHOLD = 0.6
 const MAX_ATTEMPTS = 3
 const CHECK_INTERVAL_MS = 500
 
+interface GuidanceMessage {
+  message: string
+  color: 'red' | 'amber' | 'emerald'
+  icon: string
+}
+
 interface Detection {
   descriptor: Float32Array
   landmarks?: any
+}
+
+const getGuidanceMessage = (detection: any, videoEl: HTMLVideoElement): GuidanceMessage => {
+  if (!detection) {
+    return {
+      message: 'No face detected — position your face in the circle',
+      color: 'red',
+      icon: '⚠'
+    }
+  }
+
+  const box = detection.detection.box
+  const videoWidth = videoEl.videoWidth || 1
+  const videoHeight = videoEl.videoHeight || 1
+  const score = detection.detection.score
+
+  if (box.width < videoWidth * 0.2) {
+    return {
+      message: 'Move closer to the camera',
+      color: 'amber',
+      icon: '🔍'
+    }
+  }
+
+  if (box.width > videoWidth * 0.8) {
+    return {
+      message: 'Move a bit further from the camera',
+      color: 'amber',
+      icon: '↔'
+    }
+  }
+
+  const faceCenterX = box.x + box.width / 2
+  if (faceCenterX < videoWidth * 0.3) {
+    return {
+      message: 'Move your face to the right',
+      color: 'amber',
+      icon: '→'
+    }
+  }
+
+  if (faceCenterX > videoWidth * 0.7) {
+    return {
+      message: 'Move your face to the left',
+      color: 'amber',
+      icon: '←'
+    }
+  }
+
+  const faceCenterY = box.y + box.height / 2
+  if (faceCenterY < videoHeight * 0.3) {
+    return {
+      message: 'Lower your face slightly',
+      color: 'amber',
+      icon: '↓'
+    }
+  }
+
+  if (faceCenterY > videoHeight * 0.7) {
+    return {
+      message: 'Raise your face slightly',
+      color: 'amber',
+      icon: '↑'
+    }
+  }
+
+  if (score < 0.7) {
+    return {
+      message: 'Poor lighting — move to a brighter area',
+      color: 'amber',
+      icon: '💡'
+    }
+  }
+
+  return {
+    message: 'Good position! Hold still for verification.',
+    color: 'emerald',
+    icon: '✅'
+  }
 }
 
 export default function VerifyFace() {
@@ -37,6 +122,11 @@ export default function VerifyFace() {
   const [cameraActive, setCameraActive] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [attempts, setAttempts] = useState(0)
+  const [guidance, setGuidance] = useState<GuidanceMessage>({
+    message: 'No face detected — position your face in the circle',
+    color: 'red',
+    icon: '⚠'
+  })
 
   useEffect(() => {
     if (!scriptLoaded) {
@@ -64,7 +154,7 @@ export default function VerifyFace() {
           setSuccess('Using your enrolled face for verification.')
         } else if (refData.photo_url) {
           try {
-            const baseUrl = (api.defaults.baseURL || '').replace(/\/\/+$/, '')
+            const baseUrl = (api.defaults.baseURL || '').replace(/\/\/+/g, '')
             const photoUrl = refData.photo_url.startsWith('http')
               ? refData.photo_url
               : `${baseUrl}${refData.photo_url}`
@@ -101,6 +191,37 @@ export default function VerifyFace() {
 
     initializeFaceApi()
   }, [router, scriptLoaded])
+
+  useEffect(() => {
+    if (!cameraActive || !scriptLoaded || !videoRef.current || !window.faceapi) {
+      return
+    }
+
+    const videoEl = videoRef.current
+    const intervalId = window.setInterval(async () => {
+      try {
+        if (!videoEl || videoEl.paused || videoEl.ended) {
+          return
+        }
+
+        const detection = await window.faceapi
+          .detectSingleFace(videoEl)
+          .withFaceLandmarks()
+
+        setGuidance(getGuidanceMessage(detection, videoEl))
+      } catch (err) {
+        setGuidance({
+          message: 'No face detected — position your face in the circle',
+          color: 'red',
+          icon: '⚠'
+        })
+      }
+    }, CHECK_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [cameraActive, scriptLoaded])
 
   const startCamera = async () => {
     try {
@@ -148,7 +269,6 @@ export default function VerifyFace() {
         return
       }
 
-      // Capture frame from video
       const context = canvasRef.current.getContext('2d')
       if (!context) {
         setError('Unable to access canvas.')
@@ -157,7 +277,6 @@ export default function VerifyFace() {
 
       context.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height)
 
-      // Detect face in captured frame
       const detections = await window.faceapi
         .detectAllFaces(canvasRef.current)
         .withFaceLandmarks()
@@ -178,10 +297,7 @@ export default function VerifyFace() {
       }
 
       const capturedDescriptor = detections[0].descriptor
-
-      // Compare descriptors using Euclidean distance
       const distance = computeDistance(referenceDescriptor, capturedDescriptor)
-      const threshold = 0.6 // Typical threshold for face-api.js
 
       if (distance < THRESHOLD) {
         setSuccess('Face verified successfully! Proceeding to ballot...')
@@ -249,7 +365,6 @@ export default function VerifyFace() {
                   </div>
                 )}
 
-                {/* Reference Photo Preview */}
                 {photoPreview && !cameraActive && (
                   <div className="mb-6 space-y-3">
                     <p className="text-sm font-medium text-slate-200">Reference Photo</p>
@@ -266,7 +381,6 @@ export default function VerifyFace() {
                   </div>
                 )}
 
-                {/* Camera Section */}
                 {!cameraActive ? (
                   <div className="space-y-4">
                     <p className="text-center text-sm text-slate-300">
@@ -302,6 +416,22 @@ export default function VerifyFace() {
                       />
                     </div>
 
+                    <div className={
+                      `rounded-2xl border px-4 py-3 text-sm ${
+                        guidance.color === 'red'
+                          ? 'border-red-500/20 bg-red-500/10 text-red-200'
+                          : guidance.color === 'amber'
+                          ? 'border-amber-500/20 bg-amber-500/10 text-amber-200'
+                          : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200'
+                      }`
+                    }>
+                      <p className="font-semibold">Realtime Guidance</p>
+                      <div className="mt-2 flex items-center gap-3">
+                        <span className="text-xl">{guidance.icon}</span>
+                        <span>{guidance.message}</span>
+                      </div>
+                    </div>
+
                     <div className="flex gap-3">
                       <button
                         onClick={captureAndVerify}
@@ -321,7 +451,6 @@ export default function VerifyFace() {
                   </div>
                 )}
 
-                {/* Fallback Option */}
                 {(!cameraActive || attempts >= 3) && (
                   <div className="mt-6 border-t border-white/10 pt-6">
                     <p className="mb-3 text-center text-sm text-slate-400">
