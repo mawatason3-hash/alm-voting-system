@@ -65,6 +65,13 @@ export default function Register() {
     const controller = new AbortController()
     const timeoutId = window.setTimeout(() => controller.abort(), 30000)
 
+    const BASE = (process.env.NEXT_PUBLIC_API_URL || '')
+      .replace('http://', 'https://')
+      .replace(/\/+$/, '')
+
+    const registerUrl = `${BASE}/api/auth/register`
+    console.log('Registering to:', registerUrl)
+
     try {
       const formData = new FormData()
       formData.append('full_name', form.full_name)
@@ -73,7 +80,7 @@ export default function Register() {
       formData.append('password', form.password)
       formData.append('photo', photo)
 
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch(registerUrl, {
         method: 'POST',
         body: formData,
         signal: controller.signal,
