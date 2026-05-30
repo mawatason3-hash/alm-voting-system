@@ -1,7 +1,6 @@
 'use client'
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import api from '../../lib/api'
 import { notify } from '../../lib/notifications'
 
 export default function Register() {
@@ -63,6 +62,9 @@ export default function Register() {
     }
 
     setLoading(true)
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), 30000)
+
     try {
       const formData = new FormData()
       formData.append('full_name', form.full_name)
@@ -71,27 +73,37 @@ export default function Register() {
       formData.append('password', form.password)
       formData.append('photo', photo)
 
-      const response = await api.post('/api/auth/register', formData)
-      const message = response?.data?.message || 'Registration submitted! Admin will review and approve your account.'
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      })
 
-      setSuccess(message)
-      setRegistrationSubmitted(true)
-      notify.success(message)
-      setForm({ full_name: '', email: '', phone: '', password: '', confirm: '' })
-      setPhoto(null)
-      setPhotoPreview(null)
-    } catch (err: any) {
-      let message = 'Registration failed.'
-      const responseData = err?.response?.data
-      if (responseData?.detail) message = responseData.detail
-      else if (responseData?.message) message = responseData.message
-      else if (typeof responseData === 'string') {
-        message = responseData.startsWith('<') ? 'API endpoint not found or returned HTML.' : responseData
-      } else if (err?.message) {
-        message = err.message
+      clearTimeout(timeoutId)
+
+      if (response.ok) {
+        const data = await response.json().catch(() => null)
+        const message = data?.message || 'Registration submitted! Admin will review and approve your account.'
+
+        setSuccess(message)
+        setRegistrationSubmitted(true)
+        notify.success(message)
+        setForm({ full_name: '', email: '', phone: '', password: '', confirm: '' })
+        setPhoto(null)
+        setPhotoPreview(null)
+      } else {
+        const responseData = await response.json().catch(() => null)
+        const message = responseData?.detail || responseData?.message || 'Registration failed. Please try again.'
+        setError(message)
+        notify.error(message)
       }
-      setError(String(message))
-      notify.error(String(message))
+    } catch (err: any) {
+      clearTimeout(timeoutId)
+      const message = err?.name === 'AbortError'
+        ? 'Request timed out. Please check your connection and try again.'
+        : 'Registration failed. Please try again.'
+      setError(message)
+      notify.error(message)
     } finally {
       setLoading(false)
     }

@@ -5,6 +5,9 @@ import { Toaster } from 'sonner'
 export const metadata = {
   title: 'ALM Voting System',
   description: 'Association of Liberians in Musanze - Voting Platform',
+  icons: {
+    icon: '/logo.jpg',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
