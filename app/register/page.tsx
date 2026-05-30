@@ -241,27 +241,20 @@ export default function Register() {
 
         {registrationSubmitted && (
           <div className="mt-6 rounded-3xl border border-slate-700 bg-slate-900/80 p-6">
-            <h2 className="text-xl font-semibold text-white">Registration submitted</h2>
+            <h2 className="text-xl font-semibold text-white">Registration Submitted!</h2>
             <p className="mt-3 text-sm text-slate-300">
-              Your registration is complete. An administrator will review and approve your account before you can vote.
+              Your registration is complete. An administrator will review and approve your account before you can log in.
             </p>
             <p className="mt-4 text-sm text-slate-400">
-              After approval, you can enroll your face descriptor from your member dashboard so you can verify your identity during election day.
+              After approval, log in and set up your face recognition from your member dashboard before election day.
             </p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-6">
               <button
                 type="button"
-                onClick={() => router.push('/dashboard')}
-                className="rounded-2xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-400"
+                onClick={() => router.push('/')}
+                className="w-full rounded-2xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-400"
               >
-                Go to dashboard
-              </button>
-              <button
-                type="button"
-                onClick={() => setRegistrationSubmitted(false)}
-                className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/20"
-              >
-                Continue browsing
+                Back to Home
               </button>
             </div>
           </div>

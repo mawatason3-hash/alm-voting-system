@@ -113,11 +113,13 @@ export default function VerifyFace() {
   const router = useRouter()
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const [loading, setLoading] = useState(true)
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [cameraError, setCameraError] = useState('')
   const [referenceDescriptor, setReferenceDescriptor] = useState<Float32Array | null>(null)
   const [cameraActive, setCameraActive] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
@@ -128,69 +130,105 @@ export default function VerifyFace() {
     icon: '⚠'
   })
 
-  useEffect(() => {
-    if (!scriptLoaded) {
-      return
-    }
-
-    const initializeFaceApi = async () => {
-      try {
-        if (!window.faceapi) {
-          console.error('face-api.js not loaded. Please ensure it is included in the HTML.')
-          setError('Face verification system not available. Redirecting to contact admin...')
-          setTimeout(() => router.push('/verify-face/contact-admin'), 2000)
-          return
+  const startCamera = async () => {
+    try {
+      setCameraError('')
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 }
         }
+      })
 
-        await window.faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
-        await window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
-        await window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+        streamRef.current = stream
+        setCameraActive(true)
+      }
+    } catch (err: any) {
+      const error = err as Error
+      if (error.name === 'NotAllowedError') {
+        setCameraError(
+          'Camera permission denied. Please go to your browser settings, allow camera access for this site, then refresh the page.'
+        )
+      } else if (error.name === 'NotFoundError') {
+        setCameraError('No camera found on your device. Please use a device with a camera.')
+      } else {
+        setCameraError('Could not access camera. Please refresh the page and try again.')
+      }
+      console.error('Camera error:', error)
+    }
+  }
 
-        const faceRefRes = await api.get('/api/votes/face-descriptor')
-        const refData = faceRefRes.data
+  const loadModels = async () => {
+    try {
+      if (!window.faceapi) {
+        console.error('face-api.js not loaded. Please ensure it is included in the HTML.')
+        setError('Face verification system not available. Redirecting to contact admin...')
+        setTimeout(() => router.push('/verify-face/contact-admin'), 2000)
+        return
+      }
 
-        if (refData.descriptor) {
-          setReferenceDescriptor(new Float32Array(refData.descriptor))
-          setSuccess('Using your enrolled face for verification.')
-        } else if (refData.photo_url) {
-          try {
-            const baseUrl = (api.defaults.baseURL || '').replace(/\/\/+/g, '')
-            const photoUrl = refData.photo_url.startsWith('http')
-              ? refData.photo_url
-              : `${baseUrl}${refData.photo_url}`
-            const img = await window.faceapi.fetchImage(photoUrl)
-            const detection = await window.faceapi
-              .detectSingleFace(img)
-              .withFaceLandmarks()
-              .withFaceDescriptor()
+      await window.faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
+      await window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+      await window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
 
-            if (detection) {
-              setReferenceDescriptor(detection.descriptor)
-              setPhotoPreview(photoUrl)
-              setSuccess('Using your registration photo for verification.')
-            } else {
-              setError('No face detected in registration photo. Redirecting to contact admin...')
-              setTimeout(() => router.push('/verify-face/contact-admin'), 2000)
-            }
-          } catch (err) {
-            console.error('Error extracting face from photo:', err)
-            setError('Unable to process registration photo. Redirecting to contact admin...')
+      const faceRefRes = await api.get('/api/votes/face-descriptor')
+      const refData = faceRefRes.data
+
+      if (refData.descriptor) {
+        setReferenceDescriptor(new Float32Array(refData.descriptor))
+        setSuccess('Using your enrolled face for verification.')
+      } else if (refData.photo_url) {
+        try {
+          const baseUrl = (api.defaults.baseURL || '').replace(/\/\/+/g, '')
+          const photoUrl = refData.photo_url.startsWith('http')
+            ? refData.photo_url
+            : `${baseUrl}${refData.photo_url}`
+          const img = await window.faceapi.fetchImage(photoUrl)
+          const detection = await window.faceapi
+            .detectSingleFace(img)
+            .withFaceLandmarks()
+            .withFaceDescriptor()
+
+          if (detection) {
+            setReferenceDescriptor(detection.descriptor)
+            setPhotoPreview(photoUrl)
+            setSuccess('Using your registration photo for verification.')
+          } else {
+            setError('No face detected in registration photo. Redirecting to contact admin...')
             setTimeout(() => router.push('/verify-face/contact-admin'), 2000)
           }
-        } else {
-          setError('No face reference available. Redirecting to contact admin...')
+        } catch (err) {
+          console.error('Error extracting face from photo:', err)
+          setError('Unable to process registration photo. Redirecting to contact admin...')
           setTimeout(() => router.push('/verify-face/contact-admin'), 2000)
         }
-      } catch (err) {
-        console.error('Error initializing face verification:', err)
-        setError('Face verification initialization failed.')
-      } finally {
-        setLoading(false)
+      } else {
+        setError('No face reference available. Redirecting to contact admin...')
+        setTimeout(() => router.push('/verify-face/contact-admin'), 2000)
       }
+    } catch (err) {
+      console.error('Error initializing face verification:', err)
+      setError('Face verification initialization failed.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Auto-start camera and load models on page load
+  useEffect(() => {
+    if (!scriptLoaded) return
+
+    const initialize = async () => {
+      await loadModels()
+      await startCamera()
     }
 
-    initializeFaceApi()
-  }, [router, scriptLoaded])
+    initialize()
+  }, [scriptLoaded])
 
   useEffect(() => {
     if (!cameraActive || !scriptLoaded || !videoRef.current || !window.faceapi) {
@@ -223,34 +261,12 @@ export default function VerifyFace() {
     }
   }, [cameraActive, scriptLoaded])
 
-  const startCamera = async () => {
-    try {
-      setError('')
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 } },
-      })
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-        setCameraActive(true)
-      }
-    } catch (err) {
-      setError('Unable to access camera. Please check permissions.')
-      notify.error('Camera access denied')
-    }
-  }
-
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
-      tracks.forEach(track => track.stop())
-      setCameraActive(false)
-    }
-  }
-
+  // Stop camera on unmount
   useEffect(() => {
     return () => {
-      stopCamera()
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop())
+      }
     }
   }, [])
 
@@ -302,7 +318,10 @@ export default function VerifyFace() {
       if (distance < THRESHOLD) {
         setSuccess('Face verified successfully! Proceeding to ballot...')
         notify.success('Face verified successfully!')
-        stopCamera()
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop())
+          setCameraActive(false)
+        }
 
         setTimeout(() => {
           router.push('/vote')
@@ -365,6 +384,25 @@ export default function VerifyFace() {
                   </div>
                 )}
 
+                {cameraError && (
+                  <div className="mb-6 rounded-2xl border border-red-500/50 bg-red-500/10 p-5">
+                    <p className="text-sm font-semibold text-red-200">📷 Camera Access Required</p>
+                    <p className="mt-2 text-sm text-red-100">To verify your identity, please:</p>
+                    <ol className="mt-3 space-y-2 text-sm text-red-100">
+                      <li>1. Click the camera icon in your browser address bar</li>
+                      <li>2. Select "Allow" for camera</li>
+                      <li>3. Click "Refresh Page" below to try again</li>
+                    </ol>
+                    <button
+                      type="button"
+                      onClick={() => window.location.reload()}
+                      className="mt-4 rounded-2xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600"
+                    >
+                      Refresh Page
+                    </button>
+                  </div>
+                )}
+
                 {photoPreview && !cameraActive && (
                   <div className="mb-6 space-y-3">
                     <p className="text-sm font-medium text-slate-200">Reference Photo</p>
@@ -381,25 +419,13 @@ export default function VerifyFace() {
                   </div>
                 )}
 
-                {!cameraActive ? (
+                {!cameraActive && !cameraError ? (
                   <div className="space-y-4">
                     <p className="text-center text-sm text-slate-300">
-                      Please use your camera to verify your face before voting.
+                      Initializing camera for face verification...
                     </p>
-                    <button
-                      onClick={startCamera}
-                      disabled={verifying || attempts >= 3}
-                      className="w-full rounded-2xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      Start Camera
-                    </button>
-                    {attempts >= 3 && (
-                      <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                        You have reached the maximum number of verification attempts. Please contact an administrator for help.
-                      </div>
-                    )}
                   </div>
-                ) : (
+                ) : cameraActive ? (
                   <div className="space-y-4">
                     <div className="relative">
                       <video
@@ -441,7 +467,12 @@ export default function VerifyFace() {
                         {verifying ? 'Verifying...' : 'Verify Face'}
                       </button>
                       <button
-                        onClick={stopCamera}
+                        onClick={() => {
+                          if (streamRef.current) {
+                            streamRef.current.getTracks().forEach((track) => track.stop())
+                            setCameraActive(false)
+                          }
+                        }}
                         disabled={verifying}
                         className="flex-1 rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/20 disabled:cursor-not-allowed disabled:opacity-70"
                       >
@@ -451,7 +482,7 @@ export default function VerifyFace() {
                   </div>
                 )}
 
-                {(!cameraActive || attempts >= 3) && (
+                {(!cameraActive && !cameraError && !loading) || attempts >= 3 ? (
                   <div className="mt-6 border-t border-white/10 pt-6">
                     <p className="mb-3 text-center text-sm text-slate-400">
                       Unable to verify your face?
@@ -463,7 +494,7 @@ export default function VerifyFace() {
                       Contact Admin for Assistance
                     </button>
                   </div>
-                )}
+                ) : null}
               </>
             )}
           </div>
