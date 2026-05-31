@@ -1,5 +1,6 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import api from '../../lib/api'
 import ProtectedPage from '../components/ProtectedPage'
 import { notify } from '../../lib/notifications'
@@ -8,6 +9,7 @@ type Position = any
 type Candidate = any
 
 export default function VoteWizard() {
+  const router = useRouter()
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [teams, setTeams] = useState<any[]>([])
@@ -17,6 +19,14 @@ export default function VoteWizard() {
   const [positionKeyById, setPositionKeyById] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+
+  // BUG FIX 1: Route protection — verify selfie first
+  useEffect(() => {
+    const verified = sessionStorage.getItem('selfie_verified')
+    if (!verified || verified !== 'true') {
+      router.push('/verify-face')
+    }
+  }, [router])
 
   useEffect(() => {
     setLoading(true)
