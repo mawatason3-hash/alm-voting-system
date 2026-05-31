@@ -32,3 +32,23 @@ button, input, textarea, select {
   border: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(20px);
 }
+
+.verify-face-video-wrapper {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  background-color: #000;
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.verify-face-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  transform: scaleX(-1);
+  display: block;
+  min-height: 300px;
+  background-color: #000;
+}

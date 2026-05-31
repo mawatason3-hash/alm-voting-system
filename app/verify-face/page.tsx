@@ -66,31 +66,27 @@ export default function VerifyFace() {
   const startCamera = async () => {
     setCameraError('')
     try {
-      // CRITICAL: This is called directly from onClick, satisfying iOS gesture requirement
-      const constraints = {
-        video: {
-          facingMode: { ideal: 'user' },
-          width: { ideal: 640, max: 1280 },
-          height: { ideal: 480, max: 720 }
-        },
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
         audio: false
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints)
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        // CRITICAL for iPhone Safari
-        videoRef.current.setAttribute('playsinline', 'true')
-        videoRef.current.setAttribute('webkit-playsinline', 'true')
-        videoRef.current.setAttribute('muted', 'true')
-        videoRef.current.muted = true
-        await videoRef.current.play()
-      }
+      })
 
       streamRef.current = stream
       setStep('camera')
       setCameraReady(true)
+
+      // Wait for the video element to render before attaching the stream
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          videoRef.current.muted = true
+          videoRef.current.setAttribute('playsinline', 'true')
+          videoRef.current.setAttribute('webkit-playsinline', 'true')
+          videoRef.current
+            .play()
+            .catch(e => console.error('Play failed:', e))
+        }
+      }, 100)
     } catch (err: any) {
       console.error('Camera error:', err.name, err.message)
 
@@ -202,7 +198,7 @@ export default function VerifyFace() {
       <div className="text-center">
         <h1 className="text-3xl font-bold text-white">Identity Verification</h1>
         <p className="mt-4 text-slate-300">
-          Tap the button below to open your camera and take a selfie
+          Tap the button below to open your camera and take a selfie. When asked, please tap Allow to enable your camera.
         </p>
       </div>
 
@@ -233,57 +229,6 @@ export default function VerifyFace() {
 
   const renderCameraScreen = () => (
     <div className="space-y-4">
-      <div className="relative rounded-3xl overflow-hidden bg-black aspect-video flex items-center justify-center">
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          webkit-playsinline="true"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            transform: 'scaleX(-1)', // mirror for selfie feel
-            display: cameraReady ? 'block' : 'none'
-          }}
-        />
-
-        {/* Oval guide overlay */}
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          viewBox="0 0 400 500"
-          preserveAspectRatio="xMidYMid slice"
-        >
-          <defs>
-            <mask id="oval-mask">
-              <rect width="400" height="500" fill="white" />
-              <ellipse cx="200" cy="250" rx="120" ry="150" fill="black" />
-            </mask>
-          </defs>
-          <rect
-            width="400"
-            height="500"
-            fill="rgba(0,0,0,0.4)"
-            mask="url(#oval-mask)"
-          />
-          <ellipse
-            cx="200"
-            cy="250"
-            rx="120"
-            ry="150"
-            fill="none"
-            stroke="#fbbf24"
-            strokeWidth="2"
-            strokeDasharray="5,5"
-          />
-        </svg>
-
-        <p className="absolute inset-x-0 bottom-6 text-center text-amber-300 font-semibold">
-          Position your face in the oval
-        </p>
-      </div>
-
       <button
         onClick={captureSelfie}
         className="w-full rounded-2xl bg-amber-400 px-5 py-4 text-base font-semibold text-slate-950 transition hover:bg-amber-300 min-h-[56px]"
@@ -370,51 +315,25 @@ export default function VerifyFace() {
         🔒
       </div>
       <div>
-        <h2 className="text-2xl font-semibold text-white">Camera Permission Required</h2>
+        <h2 className="text-2xl font-semibold text-white">Camera Access Needed</h2>
         <p className="mt-3 text-sm text-slate-400">
-          The browser blocked camera access. Please allow camera permissions and refresh the page.
+          To verify your identity, we need access to your camera. Please tap the button below and select Allow when asked.
         </p>
       </div>
 
-      <div className="rounded-3xl border border-slate-700 bg-slate-950/80 p-4 text-left text-sm text-slate-300 space-y-4">
-        <div>
-          <p className="font-semibold text-white">On iPhone Safari:</p>
-          <ol className="mt-2 list-decimal list-inside space-y-1 text-slate-400 text-xs">
-            <li>Tap the "AA" icon in the address bar</li>
-            <li>Tap "Website Settings"</li>
-            <li>Set Camera to "Allow"</li>
-            <li>Tap "Done"</li>
-            <li>Tap "Refresh Page" button below</li>
-          </ol>
-        </div>
-        <div>
-          <p className="font-semibold text-white">On Android Chrome:</p>
-          <ol className="mt-2 list-decimal list-inside space-y-1 text-slate-400 text-xs">
-            <li>Tap the lock icon in the address bar</li>
-            <li>Tap "Permissions"</li>
-            <li>Enable "Camera"</li>
-            <li>Refresh the page</li>
-          </ol>
-        </div>
-      </div>
+      <button
+        onClick={() => {
+          setStep('instructions')
+          setCameraError('')
+        }}
+        className="w-full rounded-2xl bg-amber-400 px-5 py-4 text-base font-semibold text-slate-950 transition hover:bg-amber-300"
+      >
+        Try Again
+      </button>
 
-      <div className="grid gap-3">
-        <button
-          onClick={() => window.location.reload()}
-          className="w-full rounded-2xl bg-amber-400 px-5 py-4 text-base font-semibold text-slate-950 transition hover:bg-amber-300"
-        >
-          Refresh Page
-        </button>
-        <button
-          onClick={() => {
-            setStep('instructions')
-            setCameraError('')
-          }}
-          className="w-full rounded-2xl border border-slate-700 bg-slate-900 px-5 py-4 text-base font-semibold text-white transition hover:border-slate-500"
-        >
-          Try Again
-        </button>
-      </div>
+      <p className="text-sm text-slate-500">
+        If the camera popup does not appear, close this page and reopen it.
+      </p>
     </div>
   )
 
@@ -459,7 +378,56 @@ export default function VerifyFace() {
   return (
     <ProtectedPage>
       <div className="min-h-screen bg-gradient-to-b from-slate-950 to-[#071421] px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl">
+        <div className="mx-auto max-w-2xl space-y-8">
+          <div className="verify-face-video-wrapper">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="verify-face-video"
+              onLoadedMetadata={() => {
+                if (videoRef.current) {
+                  videoRef.current
+                    .play()
+                    .catch(e => console.error('Play failed:', e))
+                  console.log('Video dimensions:', videoRef.current.videoWidth, videoRef.current.videoHeight)
+                }
+              }}
+            />
+
+            {step === 'camera' && (
+              <>
+                <svg
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  viewBox="0 0 400 500"
+                  preserveAspectRatio="xMidYMid slice"
+                >
+                  <defs>
+                    <mask id="oval-mask">
+                      <rect width="400" height="500" fill="white" />
+                      <ellipse cx="200" cy="250" rx="120" ry="150" fill="black" />
+                    </mask>
+                  </defs>
+                  <rect width="400" height="500" fill="rgba(0,0,0,0.4)" mask="url(#oval-mask)" />
+                  <ellipse
+                    cx="200"
+                    cy="250"
+                    rx="120"
+                    ry="150"
+                    fill="none"
+                    stroke="#fbbf24"
+                    strokeWidth="2"
+                    strokeDasharray="5,5"
+                  />
+                </svg>
+                <p className="absolute inset-x-0 bottom-6 text-center text-amber-300 font-semibold">
+                  Position your face in the oval
+                </p>
+              </>
+            )}
+          </div>
+
           {renderContent()}
         </div>
       </div>
