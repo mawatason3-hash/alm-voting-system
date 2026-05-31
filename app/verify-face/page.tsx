@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
 import { useRouter } from 'next/navigation'
 import api from '../../lib/api'
-import ProtectedPage from '../components/ProtectedPage'
+import Protected from '../components/ProtectedPage'
 import { notify } from '../../lib/notifications'
 
 declare global {
@@ -218,7 +218,6 @@ export default function VerifyFace() {
     }
   }
 
-  // Auto-start camera and load models on page load
   useEffect(() => {
     if (!scriptLoaded) return
 
@@ -261,7 +260,6 @@ export default function VerifyFace() {
     }
   }, [cameraActive, scriptLoaded])
 
-  // Stop camera on unmount
   useEffect(() => {
     return () => {
       if (streamRef.current) {
@@ -355,151 +353,16 @@ export default function VerifyFace() {
     return Math.sqrt(sum)
   }
 
+  const guidanceClass =
+    guidance.color === 'red'
+      ? 'border-red-500/20 bg-red-500/10 text-red-200'
+      : guidance.color === 'amber'
+      ? 'border-amber-500/20 bg-amber-500/10 text-amber-200'
+      : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200'
+
   return (
-    <ProtectedPage>
-      <Script src={FACE_API_SCRIPT} strategy="afterInteractive" onLoad={() => setScriptLoaded(true)} />
-      <div className="min-h-[calc(100vh-10rem)] bg-slate-950 px-4 py-10 text-slate-100 sm:px-6">
-        <div className="mx-auto max-w-2xl">
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-semibold text-white">Face Verification</h1>
-            <p className="mt-2 text-slate-400">Verify your identity to access the ballot</p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-slate-900/90 p-8 shadow-xl">
-            {loading ? (
-              <div className="py-12 text-center">
-                <p className="text-slate-300">Initializing face verification...</p>
-              </div>
-            ) : (
-              <>
-                {error && (
-                  <div className="mb-6 rounded-2xl bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                    {error}
-                  </div>
-                )}
-
-                {success && (
-                  <div className="mb-6 rounded-2xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-                    {success}
-                  </div>
-                )}
-
-                {cameraError && (
-                  <div className="mb-6 rounded-2xl border border-red-500/50 bg-red-500/10 p-5">
-                    <p className="text-sm font-semibold text-red-200">📷 Camera Access Required</p>
-                    <p className="mt-2 text-sm text-red-100">To verify your identity, please:</p>
-                    <ol className="mt-3 space-y-2 text-sm text-red-100">
-                      <li>1. Click the camera icon in your browser address bar</li>
-                      <li>2. Select "Allow" for camera</li>
-                      <li>3. Click "Refresh Page" below to try again</li>
-                    </ol>
-                    <button
-                      type="button"
-                      onClick={() => window.location.reload()}
-                      className="mt-4 rounded-2xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600"
-                    >
-                      Refresh Page
-                    </button>
-                  </div>
-                )}
-
-                {photoPreview && !cameraActive && (
-                  <div className="mb-6 space-y-3">
-                    <p className="text-sm font-medium text-slate-200">Reference Photo</p>
-                    <div className="flex justify-center">
-                      <img
-                        src={photoPreview}
-                        alt="Reference"
-                        className="h-32 w-32 rounded-2xl border border-slate-700 object-cover"
-                      />
-                    </div>
-                    <p className="text-center text-xs text-slate-400">
-                      Your registration photo will be used to verify your identity.
-                    </p>
-                  </div>
-                )}
-
-                {!cameraActive && !cameraError ? (
-                  <div className="space-y-4">
-                    <p className="text-center text-sm text-slate-300">
-                      Initializing camera for face verification...
-                    </p>
-                  </div>
-                ) : cameraActive ? (
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        className="w-full rounded-2xl border border-white/10"
-                      />
-                      <canvas
-                        ref={canvasRef}
-                        width={640}
-                        height={480}
-                        className="hidden"
-                      />
-                    </div>
-
-                    <div className={
-                      `rounded-2xl border px-4 py-3 text-sm ${
-                        guidance.color === 'red'
-                          ? 'border-red-500/20 bg-red-500/10 text-red-200'
-                          : guidance.color === 'amber'
-                          ? 'border-amber-500/20 bg-amber-500/10 text-amber-200'
-                          : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200'
-                      }`
-                    }>
-                      <p className="font-semibold">Realtime Guidance</p>
-                      <div className="mt-2 flex items-center gap-3">
-                        <span className="text-xl">{guidance.icon}</span>
-                        <span>{guidance.message}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={captureAndVerify}
-                        disabled={verifying || attempts >= 3}
-                        className="flex-1 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        {verifying ? 'Verifying...' : 'Verify Face'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (streamRef.current) {
-                            streamRef.current.getTracks().forEach((track) => track.stop())
-                            setCameraActive(false)
-                          }
-                        }}
-                        disabled={verifying}
-                        className="flex-1 rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/20 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {(!cameraActive && !cameraError && !loading) || attempts >= 3 ? (
-                  <div className="mt-6 border-t border-white/10 pt-6">
-                    <p className="mb-3 text-center text-sm text-slate-400">
-                      Unable to verify your face?
-                    </p>
-                    <button
-                      onClick={() => router.push('/verify-face/contact-admin')}
-                      className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/20"
-                    >
-                      Contact Admin for Assistance
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </ProtectedPage>
+    <Protected>
+      <div>Verify Face minimal</div>
+    </Protected>
   )
 }
