@@ -164,10 +164,26 @@ export default function VerifyFace() {
       )
 
       console.log('Response status:', res.status)
-      const data = await res.json()
+      const responseText = await res.text()
+      let data: any = null
+      try {
+        data = JSON.parse(responseText)
+      } catch (parseError) {
+        console.warn('Failed to parse verification response JSON', parseError)
+      }
+
+      if (!res.ok) {
+        const backendMessage = data?.detail || data?.message || responseText || `Server error ${res.status}`
+        console.error('Verification failed response:', backendMessage)
+        setAttempts(a => a + 1)
+        setStep('instructions')
+        setError(`Verification failed: ${backendMessage}`)
+        return
+      }
+
       console.log('Response data:', data)
 
-      if (data.verified) {
+      if (data?.verified) {
         // BUG FIX 1B: Set flag for route protection
         sessionStorage.setItem('selfie_verified', 'true')
         setConfidence(data.confidence || 0)
@@ -181,7 +197,7 @@ export default function VerifyFace() {
         } else {
           setStep('instructions')
           setError(
-            (data.message || 'Face did not match') +
+            (data?.message || 'Face did not match') +
             ' — Please try again in better lighting.'
           )
         }
