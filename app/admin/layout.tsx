@@ -9,6 +9,7 @@ import api from '../../lib/api'
 const navItems = [
   { label: '📊 Control Center', href: '/admin/dashboard' },
   { label: '👥 Ballot Configuration', href: '/admin/teams' },
+  { label: '🧾 Verification Logs', href: '/admin/verification-logs' },
   { label: '📋 Live Standings', href: '/admin/results' },
   { label: '📥 Official Data Export', href: '/admin/results/csv' },
   { label: '🛎️ Support Requests', href: '/admin/requests' },

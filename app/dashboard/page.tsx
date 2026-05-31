@@ -50,9 +50,9 @@ export default function Dashboard() {
   const [settings, setSettings] = useState<ElectionSettings | null>(null)
   const [positions, setPositions] = useState<any[]>([])
   const [candidates, setCandidates] = useState<Candidate[]>([])
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [timeLeft, setTimeLeft] = useState('')
-  const [hasFaceSetup, setHasFaceSetup] = useState<boolean | null>(null)
   const user = getUser()
 
   const normalizePositionKey = (value: string | undefined | null) => {
@@ -91,22 +91,12 @@ export default function Dashboard() {
         }
 
         try {
-          const faceRefRes = await api.get('/api/votes/face-descriptor')
-          if (faceRefRes.status === 200) {
-            const refData = faceRefRes.data
-            if (refData?.descriptor && Array.isArray(refData.descriptor) && refData.descriptor.length > 0) {
-              setHasFaceSetup(true)
-            } else {
-              setHasFaceSetup(false)
-            }
+          const profileRes = await api.get('/api/voter/profile')
+          if (profileRes.status === 200) {
+            setProfilePhoto(profileRes.data?.photo_url || null)
           }
-        } catch (err: any) {
-          if (err?.response?.status === 404) {
-            setHasFaceSetup(false)
-          } else {
-            console.warn('Unable to resolve face verification status', err)
-            setHasFaceSetup(false)
-          }
+        } catch (profileError) {
+          console.warn('Unable to load voter profile photo:', profileError)
         }
       } catch (error) {
         console.error('Dashboard fetch error:', error)
@@ -233,13 +223,34 @@ export default function Dashboard() {
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="mb-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="rounded-[2rem] bg-white p-8 shadow-xl border border-slate-200">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.3em] text-[#c9a84c]">Member Dashboard</p>
-                  <h1 className="mt-3 text-3xl font-semibold leading-tight">Welcome back, {user?.full_name || user?.name || 'Member'}</h1>
-                  <p className="mt-3 max-w-2xl text-sm text-slate-500">
-                    Review election status, preview candidates, and complete your voting in one polished member portal.
-                  </p>
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                  <div className="relative flex-shrink-0">
+                    {profilePhoto ? (
+                      <img
+                        src={resolveImageUrl(profilePhoto) ?? profilePhoto}
+                        alt="Your profile"
+                        className="h-16 w-16 rounded-full object-cover object-top border-3 border-gold shadow-lg"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-navy border-2 border-gold text-gold font-bold text-2xl">
+                        {String(user?.full_name || user?.name || 'U')
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')
+                          .toUpperCase()
+                          .slice(0, 2)}
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-navy bg-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.3em] text-[#c9a84c]">Member Dashboard</p>
+                    <h1 className="mt-3 text-3xl font-semibold leading-tight">Welcome back, {user?.full_name || user?.name || 'Member'}</h1>
+                    <p className="mt-3 max-w-2xl text-sm text-slate-500">
+                      Review election status, preview candidates, and complete your voting in one polished member portal.
+                    </p>
+                  </div>
                 </div>
                 <div className="rounded-3xl border border-slate-200 bg-[#f8f9fa] p-5 text-right">
                   <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Voting progress</p>
@@ -296,29 +307,10 @@ export default function Dashboard() {
                   <ChevronRight size={18} className={settings?.is_active ? 'text-white' : 'text-slate-400'} />
                 </Link>
                 <div className="rounded-3xl border border-slate-200 bg-[#f8f9fa] p-5">
-                  {hasFaceSetup === null ? (
-                    <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-900">Checking face verification status…</div>
-                  ) : hasFaceSetup ? (
-                    <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">
-                      <p className="font-semibold">Face verification is set up.</p>
-                      <p className="mt-2 text-sm text-emerald-900/80">You're ready to verify your identity and access the voting ballot.</p>
-                      <div className="mt-3">
-                        <Link href="/dashboard/face-setup" className="inline-flex rounded-full bg-[#1a2744] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#18223d]">
-                          Update face recognition
-                        </Link>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">
-                      <p className="font-semibold">Face verification setup required.</p>
-                      <p className="mt-2 text-sm text-amber-900/80">Set up face recognition before you can access the ballot.</p>
-                      <div className="mt-3">
-                        <Link href="/dashboard/face-setup" className="inline-flex rounded-full bg-[#1a2744] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#18223d]">
-                          Set up face recognition
-                        </Link>
-                      </div>
-                    </div>
-                  )}
+                  <p className="font-semibold text-[#1a2744]">Identity verification</p>
+                  <p className="mt-3 text-sm text-slate-500">
+                    Your registration photo is used for live selfie verification. When voting is open, tap "Click to verify and vote" to complete identity verification.
+                  </p>
                 </div>
                 <div className="rounded-3xl border border-slate-200 bg-[#f8f9fa] p-5">
                   <div className="flex items-center gap-3">

@@ -8,6 +8,7 @@ export default function Register() {
   const [form, setForm] = useState({ full_name: '', email: '', phone: '', password: '', confirm: '' })
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [qualityWarning, setQualityWarning] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [registrationSubmitted, setRegistrationSubmitted] = useState(false)
@@ -30,6 +31,7 @@ export default function Register() {
     const maxSize = 5 * 1024 * 1024 // 5MB
     if (file.size > maxSize) {
       setError('Photo must be under 5MB')
+      setQualityWarning('Photo is too large. Please use a smaller file.')
       setPhoto(null)
       if (photoPreview) {
         URL.revokeObjectURL(photoPreview)
@@ -40,6 +42,12 @@ export default function Register() {
 
     setError('')
     setPhoto(file)
+    setQualityWarning(null)
+
+    if (file.size < 50 * 1024) {
+      setQualityWarning('Photo may be too low quality. Please use a clearer photo.')
+    }
+
     if (photoPreview) {
       URL.revokeObjectURL(photoPreview)
     }
@@ -74,11 +82,15 @@ export default function Register() {
 
     try {
       const formData = new FormData()
-      formData.append('full_name', form.full_name)
-      formData.append('email', form.email)
-      formData.append('phone', form.phone)
+      formData.append('full_name', form.full_name.trim())
+      formData.append('email', form.email.trim())
+      formData.append('phone', form.phone.trim())
       formData.append('password', form.password)
-      formData.append('photo', photo)
+      if (photo) {
+        formData.append('photo', photo, photo.name)
+      }
+
+      console.log('Photo file:', photo?.name, photo?.size)
 
       const response = await fetch(registerUrl, {
         method: 'POST',
@@ -135,21 +147,43 @@ export default function Register() {
           {success && <div className="rounded-2xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">{success}</div>}
 
           <div className="space-y-4 rounded-3xl border border-white/10 bg-slate-950/80 p-4">
+            <div className="rounded-xl border border-amber-600 bg-amber-950/90 p-4 text-amber-200">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">📸</span>
+                <div>
+                  <p className="font-bold text-amber-400 text-sm mb-2">Important — Photo Requirements</p>
+                  <ul className="text-amber-200 text-xs space-y-1">
+                    <li>✓ Use a clear SELFIE showing your face only</li>
+                    <li>✓ Face must be fully visible and centered</li>
+                    <li>✓ Good lighting — no shadows on your face</li>
+                    <li>✓ Look directly at the camera</li>
+                    <li>✓ Remove sunglasses or face coverings</li>
+                    <li>✗ Do NOT use full body photos</li>
+                    <li>✗ Do NOT use group photos</li>
+                    <li>✗ Do NOT use blurry or dark photos</li>
+                  </ul>
+                  <p className="text-amber-300 text-xs mt-2 font-semibold">
+                    ⚠ This photo will be used to verify your identity on election day. A bad photo means you may not be able to vote.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="flex flex-col items-center gap-3 text-center">
               {photoPreview ? (
                 <img
                   src={photoPreview}
                   alt="Profile preview"
-                  className="h-24 w-24 rounded-full border border-slate-700 object-cover"
+                  className="h-28 w-28 rounded-full border border-slate-700 object-cover"
                 />
               ) : (
-                <div className="flex h-24 w-24 items-center justify-center rounded-full border border-dashed border-slate-700 bg-slate-900 text-slate-500">
+                <div className="flex h-28 w-28 items-center justify-center rounded-full border border-dashed border-slate-700 bg-slate-900 text-slate-500">
                   <span className="text-sm">Photo preview</span>
                 </div>
               )}
               <div>
                 <label htmlFor="photo" className="block text-sm font-medium text-slate-200">Profile Photo</label>
-                <p className="mt-1 text-xs text-slate-400">Upload a clear photo of your face so the admin can verify your identity.</p>
+                <p className="mt-1 text-xs text-slate-400">Upload a clear selfie of your face to complete registration.</p>
               </div>
             </div>
             <input
@@ -160,6 +194,9 @@ export default function Register() {
               onChange={handlePhotoChange}
               className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20"
             />
+            {qualityWarning ? (
+              <p className="text-xs text-amber-200">{qualityWarning}</p>
+            ) : null}
           </div>
 
           <label htmlFor="full_name" className="block text-sm font-medium text-slate-200">
@@ -246,7 +283,7 @@ export default function Register() {
               Your registration is complete. An administrator will review and approve your account before you can log in.
             </p>
             <p className="mt-4 text-sm text-slate-400">
-              After approval, log in and set up your face recognition from your member dashboard before election day.
+              After approval, log in and verify your identity with a live selfie when voting opens.
             </p>
             <div className="mt-6">
               <button
