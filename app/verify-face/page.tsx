@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ProtectedPage from '../components/ProtectedPage'
 import api from '../../lib/api'
+import { getToken } from '../../lib/auth'
 
 interface AdminContact {
   admin_phone: string
@@ -137,11 +138,13 @@ export default function VerifyFace() {
 
       // Send to backend
       const BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace('http://', 'https://')
+      const token = getToken()
 
-      // Get token from multiple sources
-      const token = localStorage.getItem('token') ||
-                    localStorage.getItem('access_token') ||
-                    sessionStorage.getItem('token')
+      if (!token) {
+        setError('Unable to verify. Please sign in again and refresh the page.')
+        setStep('instructions')
+        return
+      }
 
       console.log('Sending to:', `${BASE}/api/voter/verify-selfie`)
       console.log('Token present:', !!token)
@@ -152,7 +155,7 @@ export default function VerifyFace() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
           body: JSON.stringify({
             selfie_base64: selfieBase64
