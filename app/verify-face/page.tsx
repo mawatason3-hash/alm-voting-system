@@ -66,77 +66,136 @@ export default function VerifyFace() {
   // NEVER on page load
   const startCamera = async () => {
     setCameraError('')
+    setError('')
+    setCameraReady(false)
+
     try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: {
+          facingMode: { ideal: 'user' },
+          width: { ideal: 640, max: 1280 },
+          height: { ideal: 480, max: 720 }
+        },
         audio: false
       })
 
       streamRef.current = stream
+
+      const video = videoRef.current
+      if (!video) {
+        setError('Video element not found. Please refresh.')
+        return
+      }
+
+      video.srcObject = stream
+      video.muted = true
+      video.playsInline = true
+      video.setAttribute('webkit-playsinline', 'true')
+
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error('Video timeout')), 10000)
+
+        video.onloadedmetadata = () => {
+          window.clearTimeout(timeout)
+          resolve()
+        }
+
+        video.onerror = () => {
+          window.clearTimeout(timeout)
+          reject(new Error('Video failed to load'))
+        }
+      })
+
+      await video.play()
+
+      console.log('Camera started:', video.videoWidth, 'x', video.videoHeight)
       setStep('camera')
       setCameraReady(true)
-
-      // Wait for the video element to render before attaching the stream
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          videoRef.current.muted = true
-          videoRef.current.setAttribute('playsinline', 'true')
-          videoRef.current.setAttribute('webkit-playsinline', 'true')
-          videoRef.current
-            .play()
-            .catch(e => console.error('Play failed:', e))
-        }
-      }, 100)
     } catch (err: any) {
-      console.error('Camera error:', err.name, err.message)
+      console.error('Camera error:', err?.name, err?.message || err)
 
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
         setStep('permission-denied')
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
         setCameraError('No camera found on this device.')
         setError('No camera found on this device.')
-      } else if (err.name === 'NotReadableError') {
-        setCameraError('Camera is being used by another app. Close other apps and try again.')
-        setError('Camera is being used by another app. Close other apps and try again.')
+      } else if (err?.name === 'NotReadableError') {
+        setCameraError('Camera is being used by another app. Please close other apps and try again.')
+        setError('Camera is being used by another app. Please close other apps and try again.')
       } else {
-        setCameraError(`Camera error: ${err.message}. Please refresh.`)
-        setError(`Camera error: ${err.message}. Please refresh.`)
+        setCameraError(`Camera error: ${err?.message || 'Unknown error'}. Please refresh the page.`)
+        setError(`Camera error: ${err?.message || 'Unknown error'}. Please refresh the page.`)
       }
     }
   }
 
   // BUG FIX 3B: Capture selfie and send to backend
   const captureSelfie = async () => {
-    if (!videoRef.current || !cameraReady) return
+    const video = videoRef.current
+    if (!video) return
+
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setError('Camera not ready. Please wait and try again.')
+      return
+    }
+
+    if (video.readyState < 2) {
+      setError('Camera still loading. Please wait.')
+      return
+    }
 
     try {
       setStep('processing')
 
-      // Stop camera first
-      streamRef.current?.getTracks().forEach(t => t.stop())
+      streamRef.current?.getTracks().forEach(track => track.stop())
       setCameraReady(false)
 
-      // Capture frame from video
       const canvas = document.createElement('canvas')
-      const video = videoRef.current
-      canvas.width = video.videoWidth || 640
-      canvas.height = video.videoHeight || 480
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
       const ctx = canvas.getContext('2d')
 
-      if (!ctx) throw new Error('Canvas not supported')
+      if (!ctx) {
+        setError('Browser error. Please refresh.')
+        setStep('camera')
+        return
+      }
 
-      // Mirror back (un-mirror the mirrored video for selfie look)
-      ctx.translate(canvas.width, 0)
-      ctx.scale(-1, 1)
-      ctx.drawImage(video, 0, 0)
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const pixels = imageData.data
+      let totalBrightness = 0
 
-      // Convert to base64 JPEG
-      const selfieBase64 = canvas.toDataURL('image/jpeg', 0.85)
+      for (let i = 0; i < pixels.length; i += 4) {
+        totalBrightness += pixels[i] + pixels[i + 1] + pixels[i + 2]
+      }
 
-      console.log('Selfie captured, size:', selfieBase64.length)
+      const avgBrightness = totalBrightness / (pixels.length / 4 * 3)
+      console.log('Average brightness:', avgBrightness)
 
-      // Send to backend
+      if (avgBrightness < 10) {
+        setStep('camera')
+        setError(
+          'Camera image is too dark. Please ensure your camera is working and you are in a well-lit area.'
+        )
+        await startCamera()
+        return
+      }
+
+      const selfieBase64 = canvas.toDataURL('image/jpeg', 0.92)
+      console.log('Selfie size:', selfieBase64.length)
+
+      if (selfieBase64.length < 10000) {
+        setStep('camera')
+        setError('Selfie quality too low. Please try again.')
+        await startCamera()
+        return
+      }
+
       const BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace('http://', 'https://')
       const token = getToken()
 
@@ -146,45 +205,31 @@ export default function VerifyFace() {
         return
       }
 
-      console.log('Sending to:', `${BASE}/api/voter/verify-selfie`)
-      console.log('Token present:', !!token)
-
       const res = await fetch(
         `${BASE}/api/voter/verify-selfie`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
+            Authorization: `Bearer ${token}`
           },
-          body: JSON.stringify({
-            selfie_base64: selfieBase64
-          })
+          body: JSON.stringify({ selfie_base64: selfieBase64 })
         }
       )
 
       console.log('Response status:', res.status)
-      const responseText = await res.text()
-      let data: any = null
-      try {
-        data = JSON.parse(responseText)
-      } catch (parseError) {
-        console.warn('Failed to parse verification response JSON', parseError)
-      }
+      const data = await res.json()
+      console.log('Response data:', data)
 
       if (!res.ok) {
-        const backendMessage = data?.detail || data?.message || responseText || `Server error ${res.status}`
-        console.error('Verification failed response:', backendMessage)
+        const backendMessage = data?.detail || data?.message || `Server error ${res.status}`
         setAttempts(a => a + 1)
         setStep('instructions')
         setError(`Verification failed: ${backendMessage}`)
         return
       }
 
-      console.log('Response data:', data)
-
       if (data?.verified) {
-        // BUG FIX 1B: Set flag for route protection
         sessionStorage.setItem('selfie_verified', 'true')
         setConfidence(data.confidence || 0)
         setStep('success')
@@ -196,19 +241,14 @@ export default function VerifyFace() {
           setStep('failed')
         } else {
           setStep('instructions')
-          setError(
-            (data?.message || 'Face did not match') +
-            ' — Please try again in better lighting.'
-          )
+          setError(data?.message + ' — Please try again in better lighting.')
         }
       }
     } catch (err: any) {
       console.error('Selfie error:', err)
       setAttempts(a => a + 1)
       setStep('instructions')
-      setError(
-        'Verification failed. Check your connection and try again.'
-      )
+      setError('Connection failed. Please try again.')
     }
   }
 
@@ -398,13 +438,31 @@ export default function VerifyFace() {
     <ProtectedPage>
       <div className="min-h-screen bg-gradient-to-b from-slate-950 to-[#071421] px-4 py-8 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl space-y-8">
-          <div className="verify-face-video-wrapper">
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              height: '400px',
+              backgroundColor: '#000',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              display: step === 'camera' ? 'block' : 'none'
+            }}
+          >
             <video
               ref={videoRef}
               autoPlay
               muted
               playsInline
-              className="verify-face-video"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                borderRadius: '12px',
+                transform: 'scaleX(-1)',
+                display: 'block',
+                backgroundColor: '#000'
+              }}
               onLoadedMetadata={() => {
                 if (videoRef.current) {
                   videoRef.current
@@ -413,36 +471,41 @@ export default function VerifyFace() {
                   console.log('Video dimensions:', videoRef.current.videoWidth, videoRef.current.videoHeight)
                 }
               }}
+              onCanPlay={() => {
+                console.log('Video can play')
+                setCameraReady(true)
+              }}
             />
 
             {step === 'camera' && (
               <>
-                <svg
-                  className="absolute inset-0 w-full h-full pointer-events-none"
-                  viewBox="0 0 400 500"
-                  preserveAspectRatio="xMidYMid slice"
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: '200px',
+                    height: '260px',
+                    border: '3px dashed #c4a84e',
+                    borderRadius: '50%',
+                    pointerEvents: 'none'
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '16px',
+                    left: 0,
+                    right: 0,
+                    textAlign: 'center',
+                    color: '#fff',
+                    fontSize: '14px',
+                    fontWeight: 500
+                  }}
                 >
-                  <defs>
-                    <mask id="oval-mask">
-                      <rect width="400" height="500" fill="white" />
-                      <ellipse cx="200" cy="250" rx="120" ry="150" fill="black" />
-                    </mask>
-                  </defs>
-                  <rect width="400" height="500" fill="rgba(0,0,0,0.4)" mask="url(#oval-mask)" />
-                  <ellipse
-                    cx="200"
-                    cy="250"
-                    rx="120"
-                    ry="150"
-                    fill="none"
-                    stroke="#fbbf24"
-                    strokeWidth="2"
-                    strokeDasharray="5,5"
-                  />
-                </svg>
-                <p className="absolute inset-x-0 bottom-6 text-center text-amber-300 font-semibold">
                   Position your face in the oval
-                </p>
+                </div>
               </>
             )}
           </div>
