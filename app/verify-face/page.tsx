@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ProtectedPage from '../components/ProtectedPage'
 import api from '../../lib/api'
-import { getToken } from '../../lib/auth'
 
 interface AdminContact {
   admin_phone: string
@@ -23,6 +22,7 @@ export default function VerifyFace() {
   const [error, setError] = useState('')
   const [attempts, setAttempts] = useState(0)
   const [confidence, setConfidence] = useState(0)
+  const [capturing, setCapturing] = useState(false)
   const [adminContact, setAdminContact] = useState<AdminContact>({ admin_phone: '', admin_whatsapp: '', admin_hours: '' })
   const [voterName, setVoterName] = useState('')
 
@@ -40,8 +40,17 @@ export default function VerifyFace() {
         }
         setVoterName(profileRes.data?.full_name || '')
 
-        if (statusRes.status === 200 && statusRes.data?.admin_verified) {
-          sessionStorage.setItem('admin_approved', 'true')
+        const verified = Boolean(statusRes.data?.selfie_verified || statusRes.data?.verified_by_admin || statusRes.data?.can_access_ballot)
+        if (verified) {
+          if (statusRes.data?.selfie_verified) {
+            sessionStorage.setItem('selfie_verified', 'true')
+          }
+          if (statusRes.data?.verified_by_admin) {
+            sessionStorage.setItem('admin_approved', 'true')
+          }
+          if (statusRes.data?.can_access_ballot) {
+            sessionStorage.setItem('can_access_ballot', 'true')
+          }
           router.push('/vote')
           return
         }
@@ -144,54 +153,116 @@ export default function VerifyFace() {
   }
 
   // BUG FIX 3B: Capture selfie and send to backend
+  const saveVerificationResult = async (token: string, BASE: string) => {
+    try {
+      await fetch(
+        `${BASE}/api/voter/mark-verified`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      )
+    } catch (err) {
+      console.error('Mark verified error:', err)
+    }
+  }
+
   const captureSelfie = async () => {
     const video = videoRef.current
-    if (!video) return
-
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      setError('Camera not ready. Please wait and try again.')
+    if (!video || !cameraReady) {
+      setError('Camera not ready. Please wait.')
       return
     }
 
-    if (video.readyState < 2) {
-      setError('Camera still loading. Please wait.')
-      return
+    const waitForRealFrame = (): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        let attemptsCount = 0
+        const maxAttempts = 20
+
+        const checkFrame = () => {
+          attemptsCount += 1
+
+          if (attemptsCount > maxAttempts) {
+            reject(new Error('Camera took too long to load'))
+            return
+          }
+
+          if (video.videoWidth === 0 || video.videoHeight === 0 || video.readyState < 2) {
+            window.setTimeout(checkFrame, 100)
+            return
+          }
+
+          const testCanvas = document.createElement('canvas')
+          testCanvas.width = video.videoWidth
+          testCanvas.height = video.videoHeight
+          const ctx = testCanvas.getContext('2d')
+          if (!ctx) {
+            window.setTimeout(checkFrame, 100)
+            return
+          }
+
+          ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight)
+          const imageData = ctx.getImageData(
+            video.videoWidth / 4,
+            video.videoHeight / 4,
+            video.videoWidth / 2,
+            video.videoHeight / 2
+          )
+
+          let total = 0
+          const pixels = imageData.data
+          for (let i = 0; i < pixels.length; i += 4) {
+            total += pixels[i] + pixels[i + 1] + pixels[i + 2]
+          }
+
+          const brightness = total / (pixels.length / 4 * 3)
+          console.log(`Frame brightness check: ${brightness}`)
+
+          if (brightness < 5) {
+            window.setTimeout(checkFrame, 150)
+            return
+          }
+
+          resolve()
+        }
+
+        window.setTimeout(checkFrame, 300)
+      })
     }
 
     try {
+      setCapturing(true)
+      await waitForRealFrame()
       setStep('processing')
 
       streamRef.current?.getTracks().forEach(track => track.stop())
       setCameraReady(false)
 
       const canvas = document.createElement('canvas')
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
+      canvas.width = video.videoWidth || 640
+      canvas.height = video.videoHeight || 480
       const ctx = canvas.getContext('2d')
-
       if (!ctx) {
-        setError('Browser error. Please refresh.')
-        setStep('camera')
-        return
+        throw new Error('Canvas not supported')
       }
 
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const pixels = imageData.data
-      let totalBrightness = 0
-
+      let total = 0
       for (let i = 0; i < pixels.length; i += 4) {
-        totalBrightness += pixels[i] + pixels[i + 1] + pixels[i + 2]
+        total += pixels[i] + pixels[i + 1] + pixels[i + 2]
       }
+      const brightness = total / (pixels.length / 4 * 3)
+      console.log('Final brightness:', brightness)
 
-      const avgBrightness = totalBrightness / (pixels.length / 4 * 3)
-      console.log('Average brightness:', avgBrightness)
-
-      if (avgBrightness < 10) {
+      if (brightness < 5) {
         setStep('camera')
-        setError(
-          'Camera image is too dark. Please ensure your camera is working and you are in a well-lit area.'
-        )
+        setCapturing(false)
+        setError('Camera image is too dark. Please ensure good lighting and try again.')
         await startCamera()
         return
       }
@@ -199,24 +270,39 @@ export default function VerifyFace() {
       const selfieBase64 = canvas.toDataURL('image/jpeg', 0.92)
       console.log('Selfie size:', selfieBase64.length)
 
-      if (selfieBase64.length < 10000) {
-        setStep('camera')
-        setError('Selfie quality too low. Please try again.')
-        await startCamera()
+      const BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace('http://', 'https://')
+      const token = localStorage.getItem('token') || localStorage.getItem('access_token') || sessionStorage.getItem('token')
+
+      if (!token) {
+        setStep('instructions')
+        setError('Session expired. Please log in again.')
+        router.push('/login')
         return
       }
 
-      const res = await api.post('/api/voter/verify-selfie', {
-        selfie_base64: selfieBase64,
-      })
+      console.log('Sending selfie to backend...')
+      console.log('Token:', token ? 'present' : 'MISSING')
+
+      const res = await fetch(
+        `${BASE}/api/voter/verify-selfie`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ selfie_base64: selfieBase64 })
+        }
+      )
 
       console.log('Response status:', res.status)
-      const data = res.data
-      console.log('Response data:', data)
+      const data = await res.json()
+      console.log('Response:', data)
 
-      if (data?.verified) {
+      if (data.verified) {
+        await saveVerificationResult(token, BASE)
         sessionStorage.setItem('selfie_verified', 'true')
-        setConfidence(data.confidence || 0)
+        setConfidence(data.confidence)
         setStep('success')
         setTimeout(() => router.push('/vote'), 2000)
       } else {
@@ -226,14 +312,21 @@ export default function VerifyFace() {
           setStep('failed')
         } else {
           setStep('instructions')
-          setError((data?.message || 'Verification failed.') + ' — Please try again in better lighting.')
+          setError((data?.message || 'Face did not match') + ' — Try again in better lighting.')
         }
       }
     } catch (err: any) {
-      console.error('Selfie error:', err)
-      setAttempts(a => a + 1)
-      setStep('instructions')
-      setError('Connection failed. Please try again.')
+      console.error('Capture error:', err)
+      if (err?.message === 'Camera took too long to load') {
+        setStep('camera')
+        setError('Camera loading slowly. Please try again.')
+      } else {
+        setAttempts(a => a + 1)
+        setStep('instructions')
+        setError('Verification failed. Please try again.')
+      }
+    } finally {
+      setCapturing(false)
     }
   }
 
@@ -293,9 +386,10 @@ export default function VerifyFace() {
     <div className="space-y-4">
       <button
         onClick={captureSelfie}
-        className="w-full rounded-2xl bg-amber-400 px-5 py-4 text-base font-semibold text-slate-950 transition hover:bg-amber-300 min-h-[56px]"
+        disabled={capturing}
+        className="w-full rounded-2xl bg-amber-400 px-5 py-4 text-base font-semibold text-slate-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50 min-h-[56px]"
       >
-        Take Selfie Now
+        {capturing ? 'Capturing…' : 'Take Selfie Now'}
       </button>
 
       <div className="rounded-2xl border border-slate-800 bg-[#0b172a] p-4 text-sm text-slate-300">
