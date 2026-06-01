@@ -28,13 +28,23 @@ export default function VerifyFace() {
 
   // Check if user has a profile photo
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchProfileAndStatus = async () => {
       try {
-        const res = await api.get('/api/voter/profile')
-        if (!res.data?.photo_url) {
+        const [profileRes, statusRes] = await Promise.all([
+          api.get('/api/voter/profile'),
+          api.get('/api/voter/verification-status'),
+        ])
+
+        if (!profileRes.data?.photo_url) {
           setStep('no-photo')
         }
-        setVoterName(res.data?.full_name || '')
+        setVoterName(profileRes.data?.full_name || '')
+
+        if (statusRes.status === 200 && statusRes.data?.admin_verified) {
+          sessionStorage.setItem('admin_approved', 'true')
+          router.push('/vote')
+          return
+        }
       } catch (err) {
         console.error('Profile fetch error:', err)
       }
@@ -49,9 +59,9 @@ export default function VerifyFace() {
       }
     }
 
-    fetchProfile()
+    fetchProfileAndStatus()
     fetchAdminContact()
-  }, [])
+  }, [router])
 
   // Cleanup camera on unmount
   useEffect(() => {
@@ -196,38 +206,13 @@ export default function VerifyFace() {
         return
       }
 
-      const BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace('http://', 'https://')
-      const token = getToken()
-
-      if (!token) {
-        setError('Unable to verify. Please sign in again and refresh the page.')
-        setStep('instructions')
-        return
-      }
-
-      const res = await fetch(
-        `${BASE}/api/voter/verify-selfie`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ selfie_base64: selfieBase64 })
-        }
-      )
+      const res = await api.post('/api/voter/verify-selfie', {
+        selfie_base64: selfieBase64,
+      })
 
       console.log('Response status:', res.status)
-      const data = await res.json()
+      const data = res.data
       console.log('Response data:', data)
-
-      if (!res.ok) {
-        const backendMessage = data?.detail || data?.message || `Server error ${res.status}`
-        setAttempts(a => a + 1)
-        setStep('instructions')
-        setError(`Verification failed: ${backendMessage}`)
-        return
-      }
 
       if (data?.verified) {
         sessionStorage.setItem('selfie_verified', 'true')
@@ -241,7 +226,7 @@ export default function VerifyFace() {
           setStep('failed')
         } else {
           setStep('instructions')
-          setError(data?.message + ' — Please try again in better lighting.')
+          setError((data?.message || 'Verification failed.') + ' — Please try again in better lighting.')
         }
       }
     } catch (err: any) {
@@ -438,77 +423,37 @@ export default function VerifyFace() {
     <ProtectedPage>
       <div className="min-h-screen bg-gradient-to-b from-slate-950 to-[#071421] px-4 py-8 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl space-y-8">
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              height: '400px',
-              backgroundColor: '#000',
-              borderRadius: '12px',
-              overflow: 'hidden',
-              display: step === 'camera' ? 'block' : 'none'
-            }}
-          >
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              playsInline
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                borderRadius: '12px',
-                transform: 'scaleX(-1)',
-                display: 'block',
-                backgroundColor: '#000'
-              }}
-              onLoadedMetadata={() => {
-                if (videoRef.current) {
-                  videoRef.current
-                    .play()
-                    .catch(e => console.error('Play failed:', e))
-                  console.log('Video dimensions:', videoRef.current.videoWidth, videoRef.current.videoHeight)
-                }
-              }}
-              onCanPlay={() => {
-                console.log('Video can play')
-                setCameraReady(true)
-              }}
-            />
-
             {step === 'camera' && (
-              <>
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: '200px',
-                    height: '260px',
-                    border: '3px dashed #c4a84e',
-                    borderRadius: '50%',
-                    pointerEvents: 'none'
-                  }}
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: '16px',
-                    left: 0,
-                    right: 0,
-                    textAlign: 'center',
-                    color: '#fff',
-                    fontSize: '14px',
-                    fontWeight: 500
-                  }}
-                >
-                  Position your face in the oval
-                </div>
-              </>
-            )}
-          </div>
+            <div className="relative w-full h-[400px] overflow-hidden rounded-[12px] bg-black">
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="h-full w-full object-cover rounded-[12px] bg-black scale-x-[-1]"
+                onLoadedMetadata={() => {
+                  if (videoRef.current) {
+                    videoRef.current
+                      .play()
+                      .catch(e => console.error('Play failed:', e))
+                    console.log('Video dimensions:', videoRef.current.videoWidth, videoRef.current.videoHeight)
+                  }
+                }}
+                onCanPlay={() => {
+                  console.log('Video can play')
+                  setCameraReady(true)
+                }}
+              />
+
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="h-[260px] w-[200px] rounded-full border-3 border-dashed border-amber-400/90" />
+              </div>
+
+              <div className="absolute bottom-4 left-0 right-0 text-center text-sm font-medium text-white">
+                Position your face in the oval
+              </div>
+            </div>
+          )}
 
           {renderContent()}
         </div>

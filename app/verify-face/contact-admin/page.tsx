@@ -38,8 +38,12 @@ export default function ContactAdmin() {
     const fetchRequestStatus = async () => {
       try {
         const res = await api.get('/api/access-requests/my-status')
-        setRequestStatus(res.data.status)
+        const status = res.data.status
+        setRequestStatus(status)
         setDenialReason(res.data.denial_reason || null)
+        if (status === 'approved') {
+          sessionStorage.setItem('admin_approved', 'true')
+        }
       } catch (err: any) {
         if (err?.response?.status !== 404) {
           console.warn('Failed to load access request status', err)
@@ -108,8 +112,9 @@ export default function ContactAdmin() {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="block text-sm font-medium text-slate-200">Your name</label>
+                  <label htmlFor="request-name" className="block text-sm font-medium text-slate-200">Your name</label>
                   <input
+                    id="request-name"
                     readOnly
                     value={user?.full_name || user?.name || ''}
                     className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-200 outline-none"
@@ -117,8 +122,9 @@ export default function ContactAdmin() {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="block text-sm font-medium text-slate-200">Your email</label>
+                  <label htmlFor="request-email" className="block text-sm font-medium text-slate-200">Your email</label>
                   <input
+                    id="request-email"
                     readOnly
                     value={user?.email || ''}
                     className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-200 outline-none"
@@ -126,8 +132,9 @@ export default function ContactAdmin() {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="block text-sm font-medium text-slate-200">Explain your situation</label>
+                  <label htmlFor="request-message" className="block text-sm font-medium text-slate-200">Explain your situation</label>
                   <textarea
+                    id="request-message"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     rows={5}

@@ -25,12 +25,32 @@ interface VotedPositions {
   voted_titles?: string[]
 }
 
+interface VoteChoice {
+  candidate_name: string
+  position: string
+  team_name: string
+  running_mate?: string | null
+  voted_at: string
+}
+
 interface ElectionSettings {
   election_name: string
   is_active: boolean
   voting_start: string
   voting_end: string
   allow_registration: boolean
+}
+
+const formatDate = (value: string) => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 interface Candidate {
@@ -53,6 +73,7 @@ export default function Dashboard() {
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [timeLeft, setTimeLeft] = useState('')
+  const [voteChoices, setVoteChoices] = useState<VoteChoice[]>([])
   const user = getUser()
 
   const normalizePositionKey = (value: string | undefined | null) => {
@@ -91,12 +112,20 @@ export default function Dashboard() {
         }
 
         try {
-          const profileRes = await api.get('/api/voter/profile')
+          const [profileRes, myVotesRes] = await Promise.all([
+            api.get('/api/voter/profile'),
+            api.get('/api/voter/my-votes'),
+          ])
+
           if (profileRes.status === 200) {
             setProfilePhoto(profileRes.data?.photo_url || null)
           }
+
+          if (myVotesRes.status === 200 && Array.isArray(myVotesRes.data)) {
+            setVoteChoices(myVotesRes.data)
+          }
         } catch (profileError) {
-          console.warn('Unable to load voter profile photo:', profileError)
+          console.warn('Unable to load voter profile or vote choices:', profileError)
         }
       } catch (error) {
         console.error('Dashboard fetch error:', error)
@@ -426,6 +455,37 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
+              </div>
+
+              <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-semibold">My recorded vote choices</h2>
+                    <p className="mt-1 text-sm text-slate-500">Review the selections you've already submitted.</p>
+                  </div>
+                  <div className="rounded-full bg-[#1a2744] px-3 py-2 text-sm text-slate-100">{voteChoices.length} choices</div>
+                </div>
+                {voteChoices.length === 0 ? (
+                  <div className="mt-6 rounded-3xl border border-dashed border-slate-200 bg-[#f8f9fa] p-8 text-center text-sm text-slate-500">
+                    No recorded vote choices found yet. Cast your ballot to record your selections.
+                  </div>
+                ) : (
+                  <div className="mt-6 grid gap-4">
+                    {voteChoices.map((choice) => (
+                      <div key={`${choice.position}-${choice.candidate_name}`} className="rounded-3xl border border-slate-200 bg-[#f8f9fa] p-5">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{choice.position}</p>
+                            <p className="mt-1 text-lg font-semibold text-slate-900">{choice.candidate_name}</p>
+                            <p className="text-sm text-slate-600">{choice.team_name}</p>
+                            {choice.running_mate ? <p className="text-sm text-slate-500">Running mate: {choice.running_mate}</p> : null}
+                          </div>
+                          <div className="text-right text-sm text-slate-500">{formatDate(choice.voted_at)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="rounded-[2rem] bg-white p-6 shadow-xl border border-slate-200">

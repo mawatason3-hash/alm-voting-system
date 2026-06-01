@@ -11,7 +11,8 @@ const navItems = [
   { label: '👥 Ballot Configuration', href: '/admin/teams' },
   { label: '🧾 Verification Logs', href: '/admin/verification-logs' },
   { label: '📋 Live Standings', href: '/admin/results' },
-  { label: '📥 Official Data Export', href: '/admin/results/csv' },
+  { label: '� Vote Choices', href: '/admin/vote-choices' },
+  { label: '�📥 Official Data Export', href: '/admin/results/csv' },
   { label: '🛎️ Support Requests', href: '/admin/requests' },
   { label: '📬 Access Requests', href: '/admin/access-requests' },
 ]
