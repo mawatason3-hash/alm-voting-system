@@ -13,6 +13,7 @@ export default function AdminDashboard() {
   const router = useRouter()
   const [stats, setStats] = useState<any>(null)
   const [results, setResults] = useState<any[]>([])
+  const [verificationLogs, setVerificationLogs] = useState<any[]>([])
   const [settings, setSettings] = useState<any>({
     election_name: '',
     is_active: false,
@@ -34,13 +35,15 @@ export default function AdminDashboard() {
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const [statsRes, resultsRes, settingsRes] = await Promise.all([
+        const [statsRes, resultsRes, settingsRes, logsRes] = await Promise.all([
           api.get('/api/admin/stats'),
           api.get('/api/results'),
           api.get('/api/election/settings'),
+          api.get('/api/admin/verification-logs?limit=10'),
         ])
         setStats(statsRes.data)
         setResults(resultsRes.data.candidates || [])
+        setVerificationLogs(logsRes.data.logs || [])
         setSettings({
           ...settingsRes.data,
           voting_start: formatLocalDate(settingsRes.data.voting_start),
@@ -54,6 +57,18 @@ export default function AdminDashboard() {
     }
 
     loadDashboard()
+
+    // Auto-refresh verification logs every 30 seconds
+    const logsInterval = setInterval(async () => {
+      try {
+        const logsRes = await api.get('/api/admin/verification-logs?limit=10')
+        setVerificationLogs(logsRes.data.logs || [])
+      } catch (err) {
+        console.error('Failed to refresh verification logs:', err)
+      }
+    }, 30000)
+
+    return () => clearInterval(logsInterval)
   }, [])
 
   const saveSettings = async () => {
@@ -290,7 +305,73 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+
+        <div className="rounded-[1.75rem] bg-white/95 p-6 shadow-[0_25px_80px_-45px_rgba(15,23,42,0.25)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-navy">Identity Verification Logs</h2>
+              <p className="mt-1 text-sm text-slate-500">Recent selfie verification attempts and results.</p>
+            </div>
+            <span className="rounded-full bg-gold/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-gold">
+              Latest 10
+            </span>
+          </div>
+          <div className="mt-6 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="px-4 py-3 font-semibold text-slate-700">Voter Name</th>
+                  <th className="px-4 py-3 font-semibold text-slate-700">Result</th>
+                  <th className="px-4 py-3 font-semibold text-slate-700">Confidence</th>
+                  <th className="px-4 py-3 font-semibold text-slate-700">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {verificationLogs.length > 0 ? (
+                  verificationLogs.map((log) => (
+                    <tr key={log.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="px-4 py-3 text-slate-900">{log.voter_name || '—'}</td>
+                      <td className="px-4 py-3">
+                        {log.result === 'success' ? (
+                          <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                            ✓ PASSED
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                            ✗ FAILED
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {log.confidence ? (
+                          <span className="font-semibold text-slate-900">{(log.confidence * 100).toFixed(1)}%</span>
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {log.created_at
+                          ? new Date(log.created_at).toLocaleString()
+                          : '—'}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-sm text-slate-500">
+                      No verification logs yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 text-xs text-slate-500">
+            Auto-refreshing every 30 seconds during election
+          </div>
+        </div>
       </section>
     </AdminProtectedPage>
   )
 }
+

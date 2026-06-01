@@ -16,7 +16,7 @@ export default function VerifyFace() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
-  const [step, setStep] = useState<'instructions' | 'camera' | 'processing' | 'success' | 'failed' | 'permission-denied' | 'no-photo'>('instructions')
+  const [step, setStep] = useState<'loading' | 'instructions' | 'camera' | 'processing' | 'success' | 'failed' | 'permission-denied' | 'no-photo' | 'admin-approved' | 'already-verified'>('loading')
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraError, setCameraError] = useState('')
   const [error, setError] = useState('')
@@ -37,6 +37,7 @@ export default function VerifyFace() {
 
         if (!profileRes.data?.photo_url) {
           setStep('no-photo')
+          return
         }
         setVoterName(profileRes.data?.full_name || '')
 
@@ -47,15 +48,22 @@ export default function VerifyFace() {
           }
           if (statusRes.data?.verified_by_admin) {
             sessionStorage.setItem('admin_approved', 'true')
+            setStep('admin-approved')
+            setTimeout(() => router.push('/vote'), 1500)
+            return
           }
           if (statusRes.data?.can_access_ballot) {
             sessionStorage.setItem('can_access_ballot', 'true')
+            setStep('already-verified')
+            setTimeout(() => router.push('/vote'), 1500)
+            return
           }
-          router.push('/vote')
-          return
         }
+
+        setStep('instructions')
       } catch (err) {
         console.error('Profile fetch error:', err)
+        setStep('instructions')
       }
     }
 
@@ -362,22 +370,54 @@ export default function VerifyFace() {
         Open Camera
       </button>
 
-      <div className="rounded-2xl border border-slate-700 bg-[#0b172a] p-4 text-sm text-slate-300">
-        <p className="font-semibold text-white">Need help with verification?</p>
-        <p className="mt-2 text-slate-400">Contact an admin for support at any time.</p>
-        {adminContact.admin_phone ? (
-          <a href={`tel:${adminContact.admin_phone}`} className="mt-3 block text-amber-300 underline">
-            📞 {adminContact.admin_phone}
-          </a>
-        ) : null}
-        {adminContact.admin_whatsapp ? (
-          <a
-            href={`https://wa.me/${adminContact.admin_whatsapp.replace(/[^0-9]/g, '')}`}
-            className="mt-2 block text-emerald-300 underline"
-          >
-            💬 WhatsApp Admin
-          </a>
-        ) : null}
+      <div
+        onClick={() => router.push('/verify-face/contact-admin')}
+        style={{
+          background: 'rgba(196,168,78,0.06)',
+          border: '1px solid rgba(196,168,78,0.2)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          marginTop: '16px'
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = 'rgba(196,168,78,0.1)'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'rgba(196,168,78,0.06)'
+        }}
+      >
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <div>
+            <div style={{
+              fontSize: '13px',
+              fontWeight: '600',
+              color: '#c4a84e',
+              marginBottom: '4px'
+            }}>
+              🆘 Need help with verification?
+            </div>
+            <div style={{
+              fontSize: '12px',
+              color: '#6060a0'
+            }}>
+              Tap here to contact an admin for support.
+              They can grant you access directly.
+            </div>
+          </div>
+          <div style={{
+            color: '#c4a84e',
+            fontSize: '18px',
+            marginLeft: '12px'
+          }}>
+            →
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -512,6 +552,13 @@ export default function VerifyFace() {
 
   const renderContent = () => {
     switch (step) {
+      case 'loading':
+        return (
+          <div className="rounded-3xl border border-slate-800 bg-[#071421] p-8 text-center text-slate-200 shadow-xl">
+            <div className="mx-auto mb-6 h-16 w-16 rounded-full border-4 border-amber-400 border-t-transparent animate-spin" />
+            <h2 className="text-2xl font-semibold text-white">Loading…</h2>
+          </div>
+        )
       case 'instructions':
         return renderInstructionsScreen()
       case 'camera':
@@ -526,6 +573,42 @@ export default function VerifyFace() {
         return renderPermissionDeniedScreen()
       case 'no-photo':
         return renderNoPhotoScreen()
+      case 'admin-approved':
+        return (
+          <div style={{textAlign:'center',padding:'48px 24px'}}>
+            <div style={{fontSize:'48px',marginBottom:'16px'}}>
+              ✅
+            </div>
+            <h2 style={{color:'#e8e8f8',marginBottom:'8px',fontSize:'24px',fontWeight:'600'}}>
+              Approved by Admin
+            </h2>
+            <p style={{color:'#6060a0',marginBottom:'24px',fontSize:'14px'}}>
+              Your access has been approved by an administrator.
+              Taking you to the ballot now.
+            </p>
+            <div style={{color:'#2db87a',fontSize:'13px'}}>
+              Redirecting...
+            </div>
+          </div>
+        )
+      case 'already-verified':
+        return (
+          <div style={{textAlign:'center',padding:'48px 24px'}}>
+            <div style={{fontSize:'48px',marginBottom:'16px'}}>
+              ✅
+            </div>
+            <h2 style={{color:'#e8e8f8',marginBottom:'8px',fontSize:'24px',fontWeight:'600'}}>
+              Identity Already Verified
+            </h2>
+            <p style={{color:'#6060a0',marginBottom:'24px',fontSize:'14px'}}>
+              You have already completed identity verification.
+              Taking you to the ballot now.
+            </p>
+            <div style={{color:'#2db87a',fontSize:'13px'}}>
+              Redirecting...
+            </div>
+          </div>
+        )
       default:
         return renderInstructionsScreen()
     }
@@ -535,35 +618,112 @@ export default function VerifyFace() {
     <ProtectedPage>
       <div className="min-h-screen bg-gradient-to-b from-slate-950 to-[#071421] px-4 py-8 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl space-y-8">
-          <div className={step === 'camera' && cameraReady ? 'relative w-full h-[400px] overflow-hidden rounded-[12px] bg-black' : 'hidden'}>
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              playsInline
-              className="h-full w-full object-cover rounded-[12px] bg-black scale-x-[-1]"
-              onLoadedMetadata={() => {
-                if (videoRef.current) {
-                  videoRef.current
-                    .play()
-                    .catch(e => console.error('Play failed:', e))
-                  console.log('Video dimensions:', videoRef.current.videoWidth, videoRef.current.videoHeight)
-                }
-              }}
-              onCanPlay={() => {
-                console.log('Video can play')
-                setCameraReady(true)
-              }}
-            />
+          {step === 'camera' && cameraReady && (
+            <div style={{
+              position: 'relative',
+              width: '100%',
+              height: '400px',
+              backgroundColor: '#000',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              display: 'block'
+            }}>
+              {/* Video feed */}
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  transform: 'scaleX(-1)',
+                  display: 'block'
+                }}
+                onLoadedMetadata={() => {
+                  if (videoRef.current) {
+                    videoRef.current
+                      .play()
+                      .catch(e => console.error('Play failed:', e))
+                    console.log('Video dimensions:', videoRef.current.videoWidth, videoRef.current.videoHeight)
+                  }
+                }}
+                onCanPlay={() => {
+                  console.log('Video can play')
+                  setCameraReady(true)
+                }}
+              />
 
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="h-[260px] w-[200px] rounded-full border-3 border-dashed border-amber-400/90" />
-            </div>
+              {/* Dark overlay with oval cutout using SVG */}
+              <svg
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none'
+                }}
+                viewBox="0 0 400 400"
+                preserveAspectRatio="xMidYMid slice"
+              >
+                <defs>
+                  <mask id="ovalMask">
+                    <rect width="400" height="400" fill="white"/>
+                    <ellipse cx="200" cy="190" rx="130" ry="160" 
+                             fill="black"/>
+                  </mask>
+                </defs>
+                {/* Dark overlay outside oval */}
+                <rect 
+                  width="400" 
+                  height="400" 
+                  fill="rgba(0,0,0,0.45)"
+                  mask="url(#ovalMask)"
+                />
+                {/* Oval border */}
+                <ellipse 
+                  cx="200" cy="190" rx="130" ry="160"
+                  fill="none"
+                  stroke="#c4a84e"
+                  strokeWidth="2.5"
+                  strokeDasharray="8 4"
+                />
+              </svg>
 
-            <div className="absolute bottom-4 left-0 right-0 text-center text-sm font-medium text-white">
-              Position your face in the oval
+              {/* Guide text at bottom */}
+              <div style={{
+                position: 'absolute',
+                bottom: '16px',
+                left: 0,
+                right: 0,
+                textAlign: 'center',
+                color: '#fff',
+                fontSize: '14px',
+                fontWeight: '500',
+                textShadow: '0 1px 3px rgba(0,0,0,0.8)'
+              }}>
+                Position your face in the oval
+              </div>
+
+              {/* Attempt counter */}
+              {attempts > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  background: 'rgba(0,0,0,0.6)',
+                  color: '#fff',
+                  fontSize: '12px',
+                  padding: '4px 10px',
+                  borderRadius: '20px'
+                }}>
+                  Attempt {attempts + 1} of 3
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {renderContent()}
         </div>
