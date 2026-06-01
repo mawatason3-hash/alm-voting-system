@@ -268,6 +268,24 @@ export default function VerifyFace() {
       >
         Open Camera
       </button>
+
+      <div className="rounded-2xl border border-slate-700 bg-[#0b172a] p-4 text-sm text-slate-300">
+        <p className="font-semibold text-white">Need help with verification?</p>
+        <p className="mt-2 text-slate-400">Contact an admin for support at any time.</p>
+        {adminContact.admin_phone ? (
+          <a href={`tel:${adminContact.admin_phone}`} className="mt-3 block text-amber-300 underline">
+            📞 {adminContact.admin_phone}
+          </a>
+        ) : null}
+        {adminContact.admin_whatsapp ? (
+          <a
+            href={`https://wa.me/${adminContact.admin_whatsapp.replace(/[^0-9]/g, '')}`}
+            className="mt-2 block text-emerald-300 underline"
+          >
+            💬 WhatsApp Admin
+          </a>
+        ) : null}
+      </div>
     </div>
   )
 
@@ -423,37 +441,35 @@ export default function VerifyFace() {
     <ProtectedPage>
       <div className="min-h-screen bg-gradient-to-b from-slate-950 to-[#071421] px-4 py-8 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl space-y-8">
-            {step === 'camera' && (
-            <div className="relative w-full h-[400px] overflow-hidden rounded-[12px] bg-black">
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                className="h-full w-full object-cover rounded-[12px] bg-black scale-x-[-1]"
-                onLoadedMetadata={() => {
-                  if (videoRef.current) {
-                    videoRef.current
-                      .play()
-                      .catch(e => console.error('Play failed:', e))
-                    console.log('Video dimensions:', videoRef.current.videoWidth, videoRef.current.videoHeight)
-                  }
-                }}
-                onCanPlay={() => {
-                  console.log('Video can play')
-                  setCameraReady(true)
-                }}
-              />
+          <div className={step === 'camera' && cameraReady ? 'relative w-full h-[400px] overflow-hidden rounded-[12px] bg-black' : 'hidden'}>
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="h-full w-full object-cover rounded-[12px] bg-black scale-x-[-1]"
+              onLoadedMetadata={() => {
+                if (videoRef.current) {
+                  videoRef.current
+                    .play()
+                    .catch(e => console.error('Play failed:', e))
+                  console.log('Video dimensions:', videoRef.current.videoWidth, videoRef.current.videoHeight)
+                }
+              }}
+              onCanPlay={() => {
+                console.log('Video can play')
+                setCameraReady(true)
+              }}
+            />
 
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="h-[260px] w-[200px] rounded-full border-3 border-dashed border-amber-400/90" />
-              </div>
-
-              <div className="absolute bottom-4 left-0 right-0 text-center text-sm font-medium text-white">
-                Position your face in the oval
-              </div>
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="h-[260px] w-[200px] rounded-full border-3 border-dashed border-amber-400/90" />
             </div>
-          )}
+
+            <div className="absolute bottom-4 left-0 right-0 text-center text-sm font-medium text-white">
+              Position your face in the oval
+            </div>
+          </div>
 
           {renderContent()}
         </div>
