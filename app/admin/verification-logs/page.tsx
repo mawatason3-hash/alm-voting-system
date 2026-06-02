@@ -37,7 +37,7 @@ export default function AdminVerificationLogs() {
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-gold/80">Verification</p>
           <h1 className="mt-2 text-3xl font-semibold text-white">Verification logs</h1>
-          <p className="mt-2 text-sm text-slate-300">Review selfie verification attempts and audit identity checks in one place.</p>
+          <p className="mt-2 text-sm text-slate-300">Review verification attempts and audit identity checks in one place.</p>
           {grantMessage ? (
             <div className="mt-4 rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200">
               {grantMessage}
@@ -103,11 +103,11 @@ export default function AdminVerificationLogs() {
                       )}
                     </div>
                     <div className="rounded-3xl border border-white/10 bg-slate-950 p-4 text-sm text-slate-300">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Selfie</p>
-                      {log.selfie_url ? (
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Upload</p>
+                      {log.upload_url ? (
                         <img
-                          src={log.selfie_url}
-                          alt="Selfie upload"
+                          src={log.upload_url}
+                          alt="Upload"
                           className="mt-3 h-32 w-full rounded-3xl object-cover"
                         />
                       ) : (

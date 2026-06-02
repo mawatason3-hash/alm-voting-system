@@ -149,21 +149,18 @@ export default function Register() {
           <div className="space-y-4 rounded-3xl border border-white/10 bg-slate-950/80 p-4">
             <div className="rounded-xl border border-amber-600 bg-amber-950/90 p-4 text-amber-200">
               <div className="flex items-start gap-3">
-                <span className="text-2xl">📸</span>
+                <span className="text-2xl">✉️</span>
                 <div>
-                  <p className="font-bold text-amber-400 text-sm mb-2">Important — Photo Requirements</p>
+                  <p className="font-bold text-amber-400 text-sm mb-2">Important — Email Verification</p>
                   <ul className="text-amber-200 text-xs space-y-1">
-                    <li>✓ Use a clear SELFIE showing your face only</li>
-                    <li>✓ Face must be fully visible and centered</li>
-                    <li>✓ Good lighting — no shadows on your face</li>
-                    <li>✓ Look directly at the camera</li>
-                    <li>✓ Remove sunglasses or face coverings</li>
-                    <li>✗ Do NOT use full body photos</li>
-                    <li>✗ Do NOT use group photos</li>
-                    <li>✗ Do NOT use blurry or dark photos</li>
+                    <li>✓ Use the email address you check regularly</li>
+                    <li>✓ You will receive a one-time OTP code there</li>
+                    <li>✓ Enter the OTP exactly as shown in the email</li>
+                    <li>✓ OTP expires after 10 minutes</li>
+                    <li>✗ Do not use a mistyped or temporary email</li>
                   </ul>
                   <p className="text-amber-300 text-xs mt-2 font-semibold">
-                    ⚠ This photo will be used to verify your identity on election day. A bad photo means you may not be able to vote.
+                    ⚠ Make sure your email is correct. If you cannot access it, contact an admin for help.
                   </p>
                 </div>
               </div>
@@ -183,17 +180,17 @@ export default function Register() {
               )}
               <div>
                 <label htmlFor="photo" className="block text-sm font-medium text-slate-200">Profile Photo</label>
-                <p className="mt-1 text-xs text-slate-400">Upload a clear selfie of your face to complete registration.</p>
+                <p className="mt-1 text-xs text-slate-400">Upload a clear profile photo for your account. Photo is not used for live face capture anymore.</p>
+                <input
+                  id="photo"
+                  name="photo"
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20"
+                />
               </div>
             </div>
-            <input
-              id="photo"
-              name="photo"
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20"
-            />
             {qualityWarning ? (
               <p className="text-xs text-amber-200">{qualityWarning}</p>
             ) : null}
@@ -283,7 +280,7 @@ export default function Register() {
               Your registration is complete. An administrator will review and approve your account before you can log in.
             </p>
             <p className="mt-4 text-sm text-slate-400">
-              After approval, log in and verify your identity with a live selfie when voting opens.
+              After approval, log in and verify your identity with an email OTP when voting opens.
             </p>
             <div className="mt-6">
               <button

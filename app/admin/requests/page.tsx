@@ -59,8 +59,8 @@ export default function AdminRequests() {
       <section className="space-y-6">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-gold/80">Support workflow</p>
-          <h1 className="mt-2 text-3xl font-semibold text-white">Face verification support requests</h1>
-          <p className="mt-2 text-sm text-slate-300">Review and resolve voter assistance requests from the verification flow.</p>
+          <h1 className="mt-2 text-3xl font-semibold text-white">Verification support requests</h1>
+          <p className="mt-2 text-sm text-slate-300">Review and resolve voter assistance requests from the verification flow (email OTP or admin help).</p>
         </div>
 
         <div className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-slate-900/90 shadow-[0_30px_60px_-30px_rgba(15,23,42,0.8)]">

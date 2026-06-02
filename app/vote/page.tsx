@@ -20,9 +20,9 @@ export default function VoteWizard() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
-  // BUG FIX 1: Route protection — verify selfie first or admin-approved bypass
+  // Route protection — verify email OTP first or admin-approved bypass
   useEffect(() => {
-    const verified = sessionStorage.getItem('selfie_verified')
+    const verified = sessionStorage.getItem('otp_verified')
     const adminApproved = sessionStorage.getItem('admin_approved')
     if ((verified !== 'true') && (adminApproved !== 'true')) {
       router.push('/verify-face')

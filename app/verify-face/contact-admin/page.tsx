@@ -98,7 +98,7 @@ export default function ContactAdmin() {
         <div className="mx-auto max-w-3xl">
           <div className="mb-8 text-center">
             <h1 className="text-3xl font-semibold text-white">Need admin access?</h1>
-            <p className="mt-2 text-slate-400">Face verification failed or is unavailable. Send an access request to the administrator.</p>
+            <p className="mt-2 text-slate-400">Verification failed or is unavailable. Send an access request to the administrator for help.</p>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[0.95fr_0.95fr]">
@@ -107,7 +107,7 @@ export default function ContactAdmin() {
                 <div className="rounded-2xl bg-amber-500/10 px-6 py-4">
                   <p className="font-semibold text-white">Fallback access request</p>
                   <p className="mt-2 text-sm text-slate-200">
-                    If face recognition fails, submit this request so the administrator can grant you ballot access.
+                    If verification fails, submit this request so the administrator can grant you ballot access.
                   </p>
                 </div>
 
@@ -139,7 +139,7 @@ export default function ContactAdmin() {
                     onChange={(e) => setMessage(e.target.value)}
                     rows={5}
                     className="w-full rounded-3xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-200 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20"
-                    placeholder="I could not complete face verification and need help accessing the ballot..."
+                    placeholder="I could not complete verification and need help accessing the ballot..."
                   />
                 </div>
 

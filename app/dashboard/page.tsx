@@ -338,7 +338,7 @@ export default function Dashboard() {
                 <div className="rounded-3xl border border-slate-200 bg-[#f8f9fa] p-5">
                   <p className="font-semibold text-[#1a2744]">Identity verification</p>
                   <p className="mt-3 text-sm text-slate-500">
-                    Your registration photo is used for live selfie verification. When voting is open, tap "Click to verify and vote" to complete identity verification.
+                    We use email OTP verification for ballot access. When voting is open, tap "Click to verify and vote" to request a one-time code.
                   </p>
                 </div>
                 <div className="rounded-3xl border border-slate-200 bg-[#f8f9fa] p-5">
