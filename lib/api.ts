@@ -29,7 +29,7 @@ const baseURL = ((envApiUrl && envApiUrl.length > 0 ? envApiUrl : defaultApiUrl)
 
 const api = axios.create({
   baseURL,
-  timeout: 30000,
+  timeout: 60000,
   withCredentials: false,
   headers: {
     Accept: 'application/json',
@@ -87,3 +87,26 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 }, (error) => Promise.reject(error))
 
 export default api
+
+// Simple retry for GET requests that time out or fail due to network blips.
+api.interceptors.response.use(undefined, async (error) => {
+  const config = error?.config as any
+  if (!config) return Promise.reject(error)
+
+  const isTimeout = error?.code === 'ECONNABORTED' || (error?.message || '').toLowerCase().includes('timeout')
+  const isGet = config.method && config.method.toLowerCase() === 'get'
+
+  if (isGet && isTimeout) {
+    config.__retryCount = config.__retryCount || 0
+    if (config.__retryCount < 1) {
+      config.__retryCount += 1
+      try {
+        return api.request(config)
+      } catch (e) {
+        return Promise.reject(e)
+      }
+    }
+  }
+
+  return Promise.reject(error)
+})
