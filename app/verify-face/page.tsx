@@ -5,6 +5,14 @@ import { useRouter } from 'next/navigation'
 import ProtectedPage from '../components/ProtectedPage'
 import api from '../../lib/api'
 
+const maskEmail = (email: string): string => {
+  if (!email || !email.includes('@')) return email
+  const [user, domain] = email.split('@')
+  if (user.length <= 4) return email
+  const masked = user.slice(0, 2) + '*'.repeat(Math.max(0, user.length - 4)) + user.slice(-2)
+  return `${masked}@${domain}`
+}
+
 interface AdminContact {
   admin_phone: string
   admin_whatsapp: string
