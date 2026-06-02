@@ -322,7 +322,7 @@ export default function Dashboard() {
               </div>
               <div className="mt-6 space-y-4">
                 <Link
-                  href={settings?.is_active ? '/verify-face' : '#'}
+                  href={settings?.is_active ? '/otp-verify' : '#'}
                   className={`flex items-center justify-between rounded-3xl border px-5 py-4 text-sm font-semibold transition ${
                     settings?.is_active
                       ? 'border-[#c9a84c] bg-[#1a2744] text-white hover:bg-[#18223d]'

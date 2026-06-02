@@ -25,7 +25,7 @@ export default function VoteWizard() {
     const verified = sessionStorage.getItem('otp_verified')
     const adminApproved = sessionStorage.getItem('admin_approved')
     if ((verified !== 'true') && (adminApproved !== 'true')) {
-      router.push('/verify-face')
+      router.push('/otp-verify')
     }
   }, [router])
 
