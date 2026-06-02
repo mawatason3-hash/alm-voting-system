@@ -36,16 +36,31 @@ export default function ContactAdmin() {
     }
 
     const fetchRequestStatus = async () => {
-      try {
-        const res = await api.get('/api/access-requests/my-status')
+      const tryStatusEndpoint = async (endpoint: string) => {
+        const res = await api.get(endpoint)
         const status = res.data.status
         setRequestStatus(status)
         setDenialReason(res.data.denial_reason || null)
         if (status === 'approved') {
           sessionStorage.setItem('admin_approved', 'true')
         }
+      }
+
+      try {
+        await tryStatusEndpoint('/api/access-requests/my-status')
       } catch (err: any) {
-        if (err?.response?.status !== 404) {
+        const statusCode = err?.response?.status
+        if (statusCode === 404) {
+          try {
+            await tryStatusEndpoint('/api/access-requests/status')
+          } catch (secondaryErr: any) {
+            if (secondaryErr?.response?.status !== 404) {
+              console.warn('Failed to load access request status from fallback endpoint', secondaryErr)
+            }
+          }
+        } else if (statusCode === 401) {
+          console.warn('Access request status requires authentication', err)
+        } else {
           console.warn('Failed to load access request status', err)
         }
       }
