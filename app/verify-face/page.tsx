@@ -181,22 +181,45 @@ export default function VerifyFace() {
         )}
       </div>
 
-      <div className="rounded-3xl border border-slate-700 bg-[#0b172a] p-4 text-sm text-slate-300">
-        <p className="font-semibold text-white">Need help with verification?</p>
-        <p className="mt-2 text-slate-400">If you cannot access your email or need support, contact an admin directly.</p>
-        {adminContact.admin_phone ? (
-          <a href={`tel:${adminContact.admin_phone}`} className="mt-3 block text-amber-300 underline">
-            📞 {adminContact.admin_phone}
-          </a>
-        ) : null}
-        {adminContact.admin_whatsapp ? (
-          <a
-            href={`https://wa.me/${adminContact.admin_whatsapp.replace(/[^0-9]/g, '')}`}
-            className="mt-2 block text-emerald-300 underline"
-          >
-            💬 WhatsApp Admin
-          </a>
-        ) : null}
+      <div
+        onClick={() => router.push('/verify-face/contact-admin')}
+        style={{
+          marginTop: '16px',
+          background: 'rgba(196,168,78,0.06)',
+          border: '1px solid rgba(196,168,78,0.25)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}
+      >
+        <div>
+          <div style={{
+            fontSize: '13px',
+            fontWeight: '600',
+            color: '#c4a84e',
+            marginBottom: '4px'
+          }}>
+            🆘 Need help with verification?
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: '#6060a0',
+            lineHeight: '1.5'
+          }}>
+            Did not receive your OTP? Tap here to request admin access to the ballot directly. Admin can approve you without OTP.
+          </div>
+        </div>
+        <div style={{
+          color: '#c4a84e',
+          fontSize: '20px',
+          marginLeft: '12px',
+          flexShrink: 0
+        }}>
+          →
+        </div>
       </div>
     </div>
   )
