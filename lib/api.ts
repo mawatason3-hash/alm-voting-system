@@ -29,7 +29,7 @@ const baseURL = ((envApiUrl && envApiUrl.length > 0 ? envApiUrl : defaultApiUrl)
 
 const api = axios.create({
   baseURL,
-  timeout: 15000,
+  timeout: 30000,
   withCredentials: false,
   headers: {
     Accept: 'application/json',
