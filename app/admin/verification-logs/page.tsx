@@ -4,11 +4,19 @@ import React, { useEffect, useState } from 'react'
 import api from '../../../lib/api'
 import AdminProtectedPage from '../../components/AdminProtectedPage'
 
+interface VerificationLog {
+  voter_id: string
+  voter_name: string
+  voter_email: string
+  verification_method: string
+  verification_timestamp: string
+}
+
 export default function AdminVerificationLogs() {
-  const [logs, setLogs] = useState<any[]>([])
+  const [logs, setLogs] = useState<VerificationLog[]>([])
   const [loading, setLoading] = useState(true)
-  const [grantingId, setGrantingId] = useState<string | null>(null)
-  const [grantMessage, setGrantMessage] = useState<string>('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterMethod, setFilterMethod] = useState('')
 
   useEffect(() => {
     api
@@ -18,18 +26,17 @@ export default function AdminVerificationLogs() {
       .finally(() => setLoading(false))
   }, [])
 
-  const grantAccess = async (logId: string) => {
-    setGrantMessage('')
-    setGrantingId(logId)
-    try {
-      await api.post(`/api/verification-logs/${logId}/grant-access`)
-      setGrantMessage('Access has been granted for this voter.')
-      setGrantingId(null)
-    } catch (err) {
-      setGrantMessage('Unable to grant access. Please try again.')
-      setGrantingId(null)
-    }
-  }
+  const filteredLogs = logs.filter((log) => {
+    const matchesSearch =
+      log.voter_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.voter_email.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesMethod = filterMethod ? log.verification_method === filterMethod : true
+    return matchesSearch && matchesMethod
+  })
+
+  const totalVerified = logs.length
+  const emailOtpCount = logs.filter((log) => log.verification_method === 'Email OTP').length
+  const adminApprovedCount = logs.filter((log) => log.verification_method === 'Admin Approved').length
 
   return (
     <AdminProtectedPage>
@@ -37,82 +44,79 @@ export default function AdminVerificationLogs() {
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-gold/80">Verification</p>
           <h1 className="mt-2 text-3xl font-semibold text-white">Verification logs</h1>
-          <p className="mt-2 text-sm text-slate-300">Review verification attempts and audit identity checks in one place.</p>
-          {grantMessage ? (
-            <div className="mt-4 rounded-3xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-              {grantMessage}
+          <p className="mt-2 text-sm text-slate-300">Review all verified members who have accessed the ballot.</p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6">
+            <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Total verified</p>
+            <p className="mt-3 text-4xl font-semibold text-white">{totalVerified}</p>
+          </div>
+          <div className="rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6">
+            <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Email OTP verified</p>
+            <p className="mt-3 text-4xl font-semibold text-white">{emailOtpCount}</p>
+          </div>
+          <div className="rounded-[1.75rem] border border-white/10 bg-slate-900/80 p-6">
+            <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Admin approved</p>
+            <p className="mt-3 text-4xl font-semibold text-white">{adminApprovedCount}</p>
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-white/10 bg-slate-900/80 p-6 shadow-xl">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-[0.3em] text-slate-500">Search by name or email</label>
+              <input
+                type="text"
+                placeholder="Enter member name or email…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-white/30 focus:outline-none"
+              />
             </div>
-          ) : null}
+            <div className="space-y-2">
+              <label htmlFor="filter-method" className="text-xs uppercase tracking-[0.3em] text-slate-500">Filter by method</label>
+              <select
+                id="filter-method"
+                value={filterMethod}
+                onChange={(e) => setFilterMethod(e.target.value)}
+                className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white focus:border-white/30 focus:outline-none"
+              >
+                <option value="">All verification methods</option>
+                <option value="Email OTP">Email OTP</option>
+                <option value="Admin Approved">Admin Approved</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/90 p-6 shadow-[0_30px_60px_-30px_rgba(15,23,42,0.8)]">
           {loading ? (
             <div className="text-slate-400">Loading verification logs…</div>
-          ) : logs.length === 0 ? (
+          ) : filteredLogs.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-white/10 bg-slate-900 p-6 text-sm text-slate-400">
-              No verification log entries found.
+              {searchTerm || filterMethod ? 'No matching verification logs found.' : 'No verified members yet.'}
             </div>
           ) : (
             <div className="space-y-5">
-              {logs.map((log) => (
-                <div key={log.id} className="rounded-[1.5rem] border border-white/10 bg-slate-900 p-5 shadow-sm">
+              {filteredLogs.map((log) => (
+                <div key={log.voter_id} className="rounded-[1.5rem] border border-white/10 bg-slate-900 p-5 shadow-sm">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm text-slate-400">{new Date(log.created_at).toLocaleString()}</p>
-                      <h2 className="mt-2 text-xl font-semibold text-white">{log.voter_name || log.voter_email}</h2>
+                      <h2 className="text-lg font-semibold text-white">{log.voter_name}</h2>
                       <p className="text-sm text-slate-400">{log.voter_email}</p>
-                    </div>
-                    <div className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold ${log.result === 'success' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>
-                      {log.result === 'success' ? 'PASSED' : 'FAILED'}
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 lg:grid-cols-3">
-                    {log.result !== 'success' ? (
-                      <div className="rounded-3xl border border-white/10 bg-slate-950 p-4 text-sm text-slate-300">
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin override</p>
-                        <button
-                          type="button"
-                          disabled={grantingId === log.id}
-                          onClick={() => grantAccess(log.id)}
-                          className="mt-3 inline-flex w-full items-center justify-center rounded-2xl bg-amber-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {grantingId === log.id ? 'Granting access…' : 'Grant Access'}
-                        </button>
-                      </div>
-                    ) : null}
-                    <div className="rounded-3xl border border-white/10 bg-slate-950 p-4 text-sm text-slate-300">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Match detail</p>
-                      <p className="mt-3 text-base text-white">Match confidence</p>
-                      <p className={`mt-1 text-sm ${log.distance !== null ? (log.result === 'success' ? 'text-emerald-300' : 'text-red-300') : 'text-slate-400'}`}>
-                        {log.distance !== null ? `${((1 - log.distance) * 100).toFixed(1)}% match` : 'N/A'}
+                      <p className="mt-1 text-xs text-slate-500">
+                        {new Date(log.verification_timestamp).toLocaleString()}
                       </p>
-                      <p className="mt-3 text-base text-white">Distance</p>
-                      <p className="mt-1 text-sm text-slate-400">{log.distance !== null ? log.distance.toFixed(4) : 'N/A'}</p>
                     </div>
-                    <div className="rounded-3xl border border-white/10 bg-slate-950 p-4 text-sm text-slate-300">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Registration photo</p>
-                      {log.registration_photo_url ? (
-                        <img
-                          src={log.registration_photo_url}
-                          alt="Registration photo"
-                          className="mt-3 h-32 w-full rounded-3xl object-cover"
-                        />
-                      ) : (
-                        <p className="mt-3 text-sm text-slate-500">Not available</p>
-                      )}
-                    </div>
-                    <div className="rounded-3xl border border-white/10 bg-slate-950 p-4 text-sm text-slate-300">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Upload</p>
-                      {log.upload_url ? (
-                        <img
-                          src={log.upload_url}
-                          alt="Upload"
-                          className="mt-3 h-32 w-full rounded-3xl object-cover"
-                        />
-                      ) : (
-                        <p className="mt-3 text-sm text-slate-500">Not available</p>
-                      )}
+                    <div
+                      className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold ${
+                        log.verification_method === 'Email OTP'
+                          ? 'bg-blue-500/10 text-blue-300'
+                          : 'bg-emerald-500/10 text-emerald-300'
+                      }`}
+                    >
+                      {log.verification_method}
                     </div>
                   </div>
                 </div>
