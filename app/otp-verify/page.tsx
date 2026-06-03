@@ -66,13 +66,45 @@ export default function OtpVerifyPage() {
     setSending(true)
 
     try {
-      await api.post('/api/voter/send-otp')
-      setOtpSent(true)
-      setInfo('Code sent! Check your email.')
-      setCode('')
+      const BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace('http://', 'https://')
+
+      const token =
+        localStorage.getItem('token') ||
+        localStorage.getItem('access_token') ||
+        sessionStorage.getItem('token')
+
+      // Use AbortController with 45 second timeout
+      // Gmail SMTP can take up to 30 seconds
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 45000)
+
+      const res = await fetch(`${BASE}/api/voter/send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      const data = await res.json().catch(() => ({} as any))
+
+      if (res.ok && (data.success || data.email_sent === undefined)) {
+        // backend returns { success: true, message: 'OTP sent' }
+        setOtpSent(true)
+        setInfo('Code sent to your email. Check your inbox and spam folder.')
+        setCode('')
+      } else {
+        setError(data.detail || data.message || data.error || 'Failed to send OTP. Please try again.')
+      }
     } catch (err: any) {
-      const message = err?.response?.data?.detail || err?.response?.data?.message || err?.message || 'Unable to send OTP. Please try again.'
-      setError(String(message))
+      if (err?.name === 'AbortError') {
+        setError('Email is taking longer than expected. Please try again or contact admin for help.')
+      } else {
+        setError('Failed to send OTP. Please try again.')
+      }
     } finally {
       setSending(false)
     }
