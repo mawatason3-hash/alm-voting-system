@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ProtectedPage from '../components/ProtectedPage'
 import api from '../../lib/api'
+import { getToken } from '../../lib/auth'
 
 const maskEmail = (email: string): string => {
   if (!email || !email.includes('@')) return email
@@ -67,11 +68,7 @@ export default function OtpVerifyPage() {
 
     try {
       const BASE = (process.env.NEXT_PUBLIC_API_URL || '').replace('http://', 'https://')
-
-      const token =
-        localStorage.getItem('token') ||
-        localStorage.getItem('access_token') ||
-        sessionStorage.getItem('token')
+      const token = getToken()
 
       // Use AbortController with 45 second timeout
       // Gmail SMTP can take up to 30 seconds
