@@ -245,6 +245,24 @@ export default function AdminMembers() {
                             Review
                           </button>
                         ) : null}
+                        <select
+                          value={member.role}
+                          onChange={(e) => {
+                            const newRole = e.target.value
+                            if (newRole !== member.role) {
+                              api.put(`/api/members/${member.id}`, { role: newRole })
+                                .then(() => {
+                                  notify.success(`Role changed to ${newRole}`)
+                                  fetchMembers()
+                                })
+                                .catch((err) => notify.error(err?.response?.data?.detail || 'Failed to update role'))
+                            }
+                          }}
+                          className="rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:border-white/20"
+                        >
+                          <option value="member">Member</option>
+                          <option value="admin">Admin</option>
+                        </select>
                         <button
                           onClick={() => startEdit(member)}
                           className="rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:border-white/20"
